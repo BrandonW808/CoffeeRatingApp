@@ -1,52 +1,57 @@
-const express = require("express");
-const path = require("path");
-const fs = require("fs");
-const { parseCSV, writeCSV } = require("./utils/csvHandler");
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const connectDB = require('./config/database');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const coffeeRoutes = require('./routes/coffee');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Connect to MongoDB
+connectDB();
+
+// Middleware
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-// Serve static React files
-app.use(express.static(path.join(__dirname, "../dist")));
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/coffees', coffeeRoutes);
 
-// API: Get coffee ratings from CSV
-app.get("/api/ratings", async (req, res) => {
-    try {
-        const data = await parseCSV(path.join(__dirname, "data/ratings.csv"));
-        res.json(data);
-    } catch (err) {
-        res.status(500).send("Error reading CSV");
-    }
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
 });
 
-// API: Post new coffee rating
-app.post("/api/ratings", async (req, res) => {
-    try {
-        const newRating = req.body;
-        const filePath = path.join(__dirname, "data/ratings.csv");
+app.use(express.static(path.join(__dirname, '../../dist')));
 
-        let existing = [];
-        try {
-            existing = await parseCSV(filePath);
-        } catch (e) { }
-
-        existing.push(newRating);
-        await writeCSV(filePath, existing);
-        res.status(200).json({ success: true });
-    } catch (err) {
-        res.status(500).send("Error writing to CSV");
-    }
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
-// ✅ Serve static assets from dist at the project root
-app.use(express.static(path.join(__dirname, "../../dist")));
-
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../../dist/index.html"));
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Something went wrong!',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
