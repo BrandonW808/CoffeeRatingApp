@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const coffeeSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
   name: {
     type: String,
     required: true,
@@ -56,7 +51,7 @@ const coffeeSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt timestamp before saving
-coffeeSchema.pre('save', function(next) {
+coffeeSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
