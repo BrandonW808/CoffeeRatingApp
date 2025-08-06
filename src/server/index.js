@@ -8,6 +8,7 @@ const connectDB = require('./config/database');
 // Import routes
 const authRoutes = require('./routes/auth');
 const coffeeRoutes = require('./routes/coffee');
+const brewRoutes = require('./routes/brew');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +27,7 @@ app.use(cookieParser());
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/coffees', coffeeRoutes);
+app.use('/api/brews', brewRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

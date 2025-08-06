@@ -20,25 +20,47 @@ const coffeeSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  brewMethod: {
+  // Coffee bean processing method
+  processingMethod: {
     type: String,
-    required: true,
-    enum: ['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Other']
+    enum: ['Washed', 'Natural', 'Honey', 'Semi-washed', 'Other'],
+    default: 'Other'
   },
-  rating: {
-    type: Number,
-    required: true,
-    min: 1,
-    max: 5
-  },
-  notes: {
+  // Roast level
+  roastLevel: {
     type: String,
-    trim: true,
-    maxlength: 500
+    enum: ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark'],
+    default: 'Medium'
   },
+  // Bean variety/cultivar
+  variety: {
+    type: String,
+    trim: true
+  },
+  // Altitude where coffee was grown
+  altitude: {
+    type: String,
+    trim: true
+  },
+  // Flavor notes from roaster
+  flavorNotes: [{
+    type: String,
+    trim: true
+  }],
   price: {
     type: Number,
     min: 0
+  },
+  // User who added this coffee
+  addedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  // Whether this coffee is publicly visible
+  isPublic: {
+    type: Boolean,
+    default: false
   },
   createdAt: {
     type: Date,
@@ -55,5 +77,10 @@ coffeeSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Index for efficient querying
+coffeeSchema.index({ addedBy: 1, createdAt: -1 });
+coffeeSchema.index({ isPublic: 1, createdAt: -1 });
+coffeeSchema.index({ name: 'text', roaster: 'text', origin: 'text' });
 
 module.exports = mongoose.model('Coffee', coffeeSchema);

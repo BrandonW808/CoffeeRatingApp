@@ -9,14 +9,15 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
     brewMethod: 'Pour Over',
     rating: 3,
     notes: '',
-    price: ''
+    price: '',
+    isPublic: true,
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.name.trim()) {
       newErrors.name = 'Coffee name is required';
     }
@@ -32,13 +33,13 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
     if (formData.price && formData.price < 0) {
       newErrors.price = 'Price must be positive';
     }
-    
+
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -54,7 +55,7 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
         price: formData.price ? parseFloat(formData.price) : undefined,
         rating: parseInt(formData.rating)
       };
-      
+
       await onSubmit(dataToSubmit);
     } catch (error) {
       setErrors({ general: error.message });
@@ -75,9 +76,9 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} className="add-coffee-form">
       <h2>Add New Coffee</h2>
-      
+
       {errors.general && <div className="error-message">{errors.general}</div>}
-      
+
       <div className="form-row">
         <div className="form-group">
           <label htmlFor="name">Coffee Name*</label>
@@ -139,19 +140,15 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
 
       <div className="form-row">
         <div className="form-group">
-          <label htmlFor="brewMethod">Brew Method*</label>
+          <label htmlFor="isPublic">Public*</label>
           <select
-            id="brewMethod"
-            name="brewMethod"
-            value={formData.brewMethod}
+            id="isPublic"
+            name="isPublic"
+            value={formData.isPublic}
             onChange={handleChange}
           >
-            <option value="Espresso">Espresso</option>
-            <option value="Pour Over">Pour Over</option>
-            <option value="French Press">French Press</option>
-            <option value="Aeropress">Aeropress</option>
-            <option value="Cold Brew">Cold Brew</option>
-            <option value="Other">Other</option>
+            <option value={true}>Yes</option>
+            <option value={false}>No</option>
           </select>
         </div>
 
@@ -202,15 +199,15 @@ const AddCoffeeForm = ({ onSubmit, onCancel }) => {
       </div>
 
       <div className="form-actions">
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="btn btn-primary"
           disabled={loading}
         >
           {loading ? 'Adding...' : 'Add Coffee'}
         </button>
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="btn btn-secondary"
           onClick={onCancel}
           disabled={loading}

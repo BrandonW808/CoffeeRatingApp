@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { coffeeAPI } from '../../api/coffee';
+import { getCoffees, getStats, createCoffee, updateCoffee, deleteCoffee, exportData } from '../../api/coffee';
 import CoffeeCard from './CoffeeCard';
 import AddCoffeeForm from './AddCoffeeForm';
 
@@ -20,7 +20,7 @@ const CoffeeList = () => {
   const fetchCoffees = async () => {
     try {
       setLoading(true);
-      const response = await coffeeAPI.getCoffees({
+      const response = await getCoffees({
         sortBy,
         order: sortOrder
       });
@@ -35,7 +35,7 @@ const CoffeeList = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await coffeeAPI.getStats();
+      const response = await getStats();
       setStats(response);
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -44,7 +44,7 @@ const CoffeeList = () => {
 
   const handleAddCoffee = async (coffeeData) => {
     try {
-      await coffeeAPI.createCoffee(coffeeData);
+      await createCoffee(coffeeData);
       await fetchCoffees();
       await fetchStats();
       setShowAddForm(false);
@@ -55,7 +55,7 @@ const CoffeeList = () => {
 
   const handleUpdateCoffee = async (id, coffeeData) => {
     try {
-      await coffeeAPI.updateCoffee(id, coffeeData);
+      await updateCoffee(id, coffeeData);
       await fetchCoffees();
       await fetchStats();
     } catch (err) {
@@ -66,7 +66,7 @@ const CoffeeList = () => {
   const handleDeleteCoffee = async (id) => {
     if (window.confirm('Are you sure you want to delete this coffee rating?')) {
       try {
-        await coffeeAPI.deleteCoffee(id);
+        await deleteCoffee(id);
         await fetchCoffees();
         await fetchStats();
       } catch (err) {
@@ -77,7 +77,7 @@ const CoffeeList = () => {
 
   const handleExport = async () => {
     try {
-      const data = await coffeeAPI.exportData();
+      const data = await exportData();
       const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

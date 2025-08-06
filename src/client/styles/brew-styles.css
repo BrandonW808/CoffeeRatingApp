@@ -1,0 +1,659 @@
+/* Brew List Styles */
+.brew-list-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.brew-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.brew-list-header h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brew-list-header .count {
+  font-size: 0.8em;
+  color: #666;
+}
+
+/* Brew Filters */
+.brew-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
+}
+
+/* Brew Grid */
+.brew-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+/* Brew Card */
+.brew-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.brew-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.brew-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.brew-title {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+}
+
+.brew-method-icon {
+  font-size: 24px;
+}
+
+.brew-title h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.coffee-info {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.brew-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: #f0f0f0;
+}
+
+/* Brew Parameters */
+.brew-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.param {
+  font-size: 13px;
+  color: #555;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Brew Rating */
+.brew-rating {
+  margin-bottom: 15px;
+}
+
+.stars {
+  color: #ffa500;
+  font-size: 16px;
+  margin-right: 5px;
+}
+
+.rating-number {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Flavor Notes */
+.flavor-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.flavor-tag {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.flavor-tag.small {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.flavor-tag.more {
+  background: #f0f0f0;
+  color: #666;
+}
+
+/* Brew Notes */
+.brew-notes {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
+  line-height: 1.4;
+}
+
+/* Brew Footer */
+.brew-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.brew-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #666;
+}
+
+.public-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.brew-user {
+  font-style: italic;
+}
+
+/* Like Button */
+.like-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid #ddd;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.like-button:hover {
+  background: #f5f5f5;
+}
+
+.like-button.liked {
+  border-color: #ff4757;
+  background: #ffe0e3;
+}
+
+.like-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add Brew Form */
+.add-brew-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.add-brew-form h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.hint {
+  float: right;
+  font-weight: normal;
+  color: #999;
+  font-size: 12px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input.error,
+.form-group select.error {
+  border-color: #ff4757;
+}
+
+.field-error {
+  color: #ff4757;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+}
+
+/* Coffee Selection */
+.selected-coffee {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.coffee-details strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.coffee-details span {
+  font-size: 13px;
+  color: #666;
+}
+
+.coffee-search {
+  position: relative;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-result {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.search-result:hover {
+  background: #f5f5f5;
+}
+
+.search-result strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.search-result span {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Brew Ratio */
+.brew-ratio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brew-ratio input {
+  width: 100px;
+}
+
+.ratio-display {
+  font-size: 13px;
+  color: #666;
+}
+
+/* Rating Input */
+.rating-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rating-input input[type="range"] {
+  flex: 1;
+}
+
+.rating-display {
+  color: #ffa500;
+  font-size: 18px;
+}
+
+/* Advanced Options */
+.advanced-section {
+  margin-top: 20px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+}
+
+.advanced-options {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+/* Checkbox */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
+/* Brew Details Modal */
+.brew-details-modal {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.close-button:hover {
+  background: #f0f0f0;
+}
+
+.brew-details-content section {
+  margin-bottom: 25px;
+}
+
+.brew-details-content h3 {
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 18px;
+}
+
+.coffee-info-detailed {
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+.coffee-info-detailed h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.coffee-info-detailed p {
+  margin: 5px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Parameters Grid */
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.param-item {
+  text-align: center;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.param-icon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.param-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.param-value {
+  display: block;
+  font-weight: 600;
+  color: #333;
+}
+
+.param-value small {
+  font-weight: normal;
+  color: #666;
+}
+
+/* Advanced Parameters */
+.advanced-params p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+/* Rating Display */
+.rating-display.large {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.stars.large {
+  font-size: 24px;
+}
+
+.rating-text {
+  font-size: 16px;
+  color: #666;
+}
+
+/* Detected Flavors */
+.detected-flavors {
+  margin-top: 15px;
+}
+
+.flavor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Tasting Notes */
+.tasting-notes {
+  margin-top: 15px;
+}
+
+.tasting-notes p {
+  margin-top: 8px;
+  line-height: 1.6;
+  color: #555;
+}
+
+/* Metadata */
+.metadata {
+  font-size: 14px;
+  color: #666;
+}
+
+.metadata p {
+  margin: 8px 0;
+}
+
+.public-indicator {
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.social-stats {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-state p {
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.pagination span {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 30px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content.large {
+  max-width: 800px;
+}

@@ -48,15 +48,11 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
           onChange={(e) => setEditData({ ...editData, roastDate: e.target.value })}
         />
         <select
-          value={editData.brewMethod}
-          onChange={(e) => setEditData({ ...editData, brewMethod: e.target.value })}
+          value={editData.isPublic}
+          onChange={(e) => setEditData({ ...editData, isPublic: e.target.value })}
         >
-          <option value="Espresso">Espresso</option>
-          <option value="Pour Over">Pour Over</option>
-          <option value="French Press">French Press</option>
-          <option value="Aeropress">Aeropress</option>
-          <option value="Cold Brew">Cold Brew</option>
-          <option value="Other">Other</option>
+          <option value={true}>Yes</option>
+          <option value={false}>No</option>
         </select>
         <input
           type="number"
@@ -96,19 +92,19 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
         <p><strong>Roaster:</strong> {coffee.roaster}</p>
         <p><strong>Origin:</strong> {coffee.origin}</p>
         <p><strong>Roast Date:</strong> {formatDate(coffee.roastDate)}</p>
-        <p><strong>Brew Method:</strong> {coffee.brewMethod}</p>
+        <p><strong>Public:</strong> {coffee.isPublic ? "Yes" : "No"}</p>
         {coffee.price && <p><strong>Price:</strong> ${coffee.price.toFixed(2)}</p>}
         {coffee.notes && <p className="notes"><strong>Notes:</strong> {coffee.notes}</p>}
       </div>
       <div className="card-footer">
-        <button 
-          onClick={() => setIsEditing(true)} 
+        <button
+          onClick={() => setIsEditing(true)}
           className="btn btn-edit"
         >
           Edit
         </button>
-        <button 
-          onClick={() => onDelete(coffee._id)} 
+        <button
+          onClick={() => onDelete(coffee._id)}
           className="btn btn-delete"
         >
           Delete
