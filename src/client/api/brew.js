@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Create axios instance with auth interceptor
 const api = axios.create({
@@ -119,7 +119,7 @@ export const exportBrewsCSV = async () => {
     const response = await api.get('/brews/export/csv', {
       responseType: 'blob'
     });
-    
+
     // Create download link
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
@@ -129,7 +129,7 @@ export const exportBrewsCSV = async () => {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-    
+
     return true;
   } catch (error) {
     throw error.response?.data || error;

@@ -36,23 +36,36 @@ const BrewList = ({ viewMode = 'personal' }) => {
 
     try {
       const params = {
-        ...filters,
         page: pagination.page,
-        limit: 20
+        limit: 20,
+        sortBy: filters.sortBy,
+        order: filters.order
       };
+
+      // Only add filters if they have values
+      if (filters.brewMethod) params.brewMethod = filters.brewMethod;
+      if (filters.minRating) params.minRating = filters.minRating;
+      if (filters.coffeeId) params.coffeeId = filters.coffeeId;
 
       const response = viewMode === 'personal'
         ? await getMyBrews(params)
         : await getPublicBrews(params);
 
-      setBrews(response.brews);
-      setPagination({
-        page: response.currentPage,
-        totalPages: response.totalPages,
-        total: response.total
-      });
+      // Ensure response has expected structure
+      if (response && Array.isArray(response.brews)) {
+        setBrews(response.brews);
+        setPagination({
+          page: response.currentPage || 1,
+          totalPages: response.totalPages || 1,
+          total: response.total || 0
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (err) {
-      setError(err.error || 'Failed to fetch brews');
+      console.error('Error fetching brews:', err);
+      setError(err?.error || err?.message || 'Failed to fetch brews');
+      setBrews([]); // Reset to empty array on error
     } finally {
       setLoading(false);
     }

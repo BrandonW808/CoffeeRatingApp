@@ -11,6 +11,7 @@ import Dashboard from './components/Dashboard';
 import './styles/app.css';
 import './styles/brew-styles.css';
 import './styles/dashboard-styles.css';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
@@ -43,7 +44,9 @@ function App() {
                 path="/brews"
                 element={
                   <PrivateRoute>
-                    <BrewList viewMode="personal" />
+                    <ErrorBoundary>
+                      <BrewList viewMode="personal" />
+                    </ErrorBoundary>
                   </PrivateRoute>
                 }
               />

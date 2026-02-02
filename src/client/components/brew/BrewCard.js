@@ -2,14 +2,25 @@ import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toggleBrewLike } from '../../api/brew';
 import { useAuth } from '../../contexts/AuthContext';
+import StarRating from '../common/StarRatingComponent';
 
 const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
   const { user } = useAuth();
-  const [liked, setLiked] = useState(brew.likes?.includes(user?._id));
-  const [likesCount, setLikesCount] = useState(brew.likesCount || 0);
-  const [isLiking, setIsLiking] = useState(false);
+  const brewUser = brew.user || {};
+  const brewUserId = brewUser._id || brewUser;
+  const isOwner = user?._id && brewUserId && (user._id === brewUserId.toString() || user._id.toString() === brewUserId.toString());
+  const safeRating = Math.max(0, Math.min(5, Math.round(brew.rating || 0)));
 
-  const isOwner = user?._id === brew.user._id;
+  const [liked, setLiked] = useState(
+    Array.isArray(brew.likes) && user?._id
+      ? brew.likes.some(like => {
+        const likeId = typeof like === 'object' ? like._id : like;
+        return likeId.toString() === user._id.toString();
+      })
+      : false
+  );
+  const [likesCount, setLikesCount] = useState(brew.likesCount || brew.likes?.length || 0);
+  const [isLiking, setIsLiking] = useState(false);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -114,10 +125,8 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
         </div>
 
         <div className="brew-rating">
-          <span className="stars">
-            {'★'.repeat(brew.rating)}{'☆'.repeat(5 - brew.rating)}
-          </span>
-          <span className="rating-number">{brew.rating}/5</span>
+          <StarRating rating={brew.rating} />
+          <span className="rating-number">{Math.round(brew.rating || 0)}/5</span>
         </div>
 
         {brew.flavorNotes && brew.flavorNotes.length > 0 && (
@@ -137,8 +146,8 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
 
         {brew.notes && (
           <p className="brew-notes">
-            {brew.notes.length > 150 
-              ? `${brew.notes.substring(0, 150)}...` 
+            {brew.notes.length > 150
+              ? `${brew.notes.substring(0, 150)}...`
               : brew.notes}
           </p>
         )}
@@ -150,9 +159,9 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
                 🌍 Public
               </span>
             )}
-            {!isOwner && brew.user && (
+            {!isOwner && brewUser.username && (
               <span className="brew-user">
-                by {brew.user.username}
+                by {brewUser.username}
               </span>
             )}
             <span className="brew-date">

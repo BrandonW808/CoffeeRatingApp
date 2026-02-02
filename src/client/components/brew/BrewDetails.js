@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
+import StarRating from '../common/StarRatingComponent';
 
 const BrewDetails = ({ brew, onClose, onEdit }) => {
   const formatBrewTime = (seconds) => {
@@ -66,13 +67,13 @@ const BrewDetails = ({ brew, onClose, onEdit }) => {
               <span className="param-label">Method</span>
               <span className="param-value">{brew.brewMethod}</span>
             </div>
-            
+
             <div className="param-item">
               <span className="param-icon">🌡️</span>
               <span className="param-label">Temperature</span>
               <span className="param-value">{brew.brewTemperature}°C</span>
             </div>
-            
+
             <div className="param-item">
               <span className="param-icon">⚖️</span>
               <span className="param-label">Ratio</span>
@@ -82,13 +83,13 @@ const BrewDetails = ({ brew, onClose, onEdit }) => {
                 <small>(1:{(brew.brewRatio.water / brew.brewRatio.coffee).toFixed(1)})</small>
               </span>
             </div>
-            
+
             <div className="param-item">
               <span className="param-icon">⚙️</span>
               <span className="param-label">Grind Size</span>
               <span className="param-value">{brew.grindSize}</span>
             </div>
-            
+
             {brew.brewTime && (
               <div className="param-item">
                 <span className="param-icon">⏱️</span>
@@ -132,13 +133,11 @@ const BrewDetails = ({ brew, onClose, onEdit }) => {
         {/* Rating and Notes */}
         <section className="rating-section">
           <h3>Rating & Notes</h3>
-          <div className="rating-display">
-            <span className="stars large">
-              {'★'.repeat(brew.rating)}{'☆'.repeat(5 - brew.rating)}
-            </span>
-            <span className="rating-text">{brew.rating} out of 5</span>
+          <div className="brew-rating">
+            <StarRating rating={brew.rating} />
+            <span className="rating-number">{Math.round(brew.rating || 0)}/5</span>
           </div>
-          
+
           {brew.flavorNotes && brew.flavorNotes.length > 0 && (
             <div className="detected-flavors">
               <strong>Detected Flavors:</strong>
@@ -149,7 +148,7 @@ const BrewDetails = ({ brew, onClose, onEdit }) => {
               </div>
             </div>
           )}
-          
+
           {brew.notes && (
             <div className="tasting-notes">
               <strong>Tasting Notes:</strong>

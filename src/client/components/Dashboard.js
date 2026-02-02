@@ -133,13 +133,13 @@ const Dashboard = () => {
                 <div key={method._id} className="method-bar">
                   <div className="method-label">
                     <span>{method._id}</span>
-                    <span>{method.count}</span>
+                    <span>{method?.count}</span>
                   </div>
                   <div className="method-progress">
                     <div
                       className="method-fill"
                       style={{
-                        width: `${(method.count / stats.summary.totalBrews) * 100}%`
+                        width: `${(method?.count / stats.summary.totalBrews) * 100}%`
                       }}
                     />
                   </div>

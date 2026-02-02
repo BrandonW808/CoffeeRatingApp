@@ -95,8 +95,20 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Brew not found' });
     }
 
+    // Extract userId from token if present (optional auth)
+    let userId = null;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+      } catch (e) {
+        // Invalid token, continue as unauthenticated
+      }
+    }
+
     // Check if user has access to this brew
-    const userId = req.userId || null;
     if (!brew.isPublic && (!userId || !brew.user._id.equals(userId))) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -154,10 +166,10 @@ router.post('/', [
     });
 
     await brew.save();
-    
+
     // Populate coffee details before sending response
     await brew.populate('coffee', 'name roaster origin roastDate');
-    
+
     res.status(201).json(brew);
   } catch (error) {
     console.error('Error creating brew:', error);
@@ -226,7 +238,7 @@ router.delete('/:id', auth, async (req, res) => {
 router.post('/:id/like', auth, async (req, res) => {
   try {
     const brew = await Brew.findById(req.params.id);
-    
+
     if (!brew) {
       return res.status(404).json({ error: 'Brew not found' });
     }
@@ -237,7 +249,7 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     const userIndex = brew.likes.indexOf(req.userId);
-    
+
     if (userIndex > -1) {
       // User already liked, so unlike
       brew.likes.splice(userIndex, 1);
@@ -247,7 +259,7 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     await brew.save();
-    
+
     res.json({
       liked: userIndex === -1,
       likesCount: brew.likes.length
