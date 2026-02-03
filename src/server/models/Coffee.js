@@ -69,7 +69,17 @@ const coffeeSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  barcode: {
+    type: String,
+    trim: true,
+    index: true,
+    sparse: true  // allows multiple docs to have null/missing barcode
+  },
+  barcodeImage: {
+    type: String,
+    trim: true
+  },
 });
 
 // Update the updatedAt timestamp before saving

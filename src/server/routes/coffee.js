@@ -476,4 +476,154 @@ router.get('/stats/summary', auth, async (req, res) => {
   }
 });
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for barcode image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../uploads/barcodes');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `barcode-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowed.test(file.mimetype);
+    if (ext && mime) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+// Get coffee by barcode
+router.get('/barcode/:barcode', auth, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+
+    const coffee = await Coffee.findOne({
+      barcode: barcode,
+      $or: [
+        { addedBy: req.userId },
+        { isPublic: true }
+      ]
+    }).populate('addedBy', 'username');
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found for this barcode' });
+    }
+
+    // Get brew stats
+    const userBrewCount = await Brew.countDocuments({
+      coffee: coffee._id,
+      user: req.userId
+    });
+
+    res.json({
+      ...coffee.toObject(),
+      userBrewCount
+    });
+  } catch (error) {
+    console.error('Error looking up barcode:', error);
+    res.status(500).json({ error: 'Error looking up barcode' });
+  }
+});
+
+// Assign barcode to coffee (with optional image)
+router.put('/:id/barcode', auth, upload.single('barcodeImage'), async (req, res) => {
+  try {
+    const { barcode } = req.body;
+
+    if (!barcode) {
+      return res.status(400).json({ error: 'Barcode is required' });
+    }
+
+    // Check if this barcode is already assigned to another coffee
+    const existingCoffee = await Coffee.findOne({
+      barcode: barcode,
+      _id: { $ne: req.params.id }
+    });
+
+    if (existingCoffee) {
+      return res.status(409).json({
+        error: 'This barcode is already assigned to another coffee',
+        existingCoffee: {
+          _id: existingCoffee._id,
+          name: existingCoffee.name,
+          roaster: existingCoffee.roaster
+        }
+      });
+    }
+
+    const updateData = {
+      barcode: barcode,
+      updatedAt: Date.now()
+    };
+
+    // If an image was uploaded, store its path
+    if (req.file) {
+      updateData.barcodeImage = `/uploads/barcodes/${req.file.filename}`;
+    }
+
+    const coffee = await Coffee.findOneAndUpdate(
+      { _id: req.params.id, addedBy: req.userId },
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('addedBy', 'username');
+
+    if (!coffee) {
+      // Clean up uploaded file if coffee not found
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    res.json(coffee);
+  } catch (error) {
+    console.error('Error assigning barcode:', error);
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Error assigning barcode' });
+  }
+});
+
+// Remove barcode from coffee
+router.delete('/:id/barcode', auth, async (req, res) => {
+  try {
+    const coffee = await Coffee.findOneAndUpdate(
+      { _id: req.params.id, addedBy: req.userId },
+      {
+        $unset: { barcode: 1, barcodeImage: 1 },
+        updatedAt: Date.now()
+      },
+      { new: true }
+    );
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    res.json({ message: 'Barcode removed', coffee });
+  } catch (error) {
+    console.error('Error removing barcode:', error);
+    res.status(500).json({ error: 'Error removing barcode' });
+  }
+});
+
 module.exports = router;
