@@ -4,6 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/database');
+const bodyParser = require('body-parser');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -11,20 +12,27 @@ const coffeeRoutes = require('./routes/coffee');
 const brewRoutes = require('./routes/brew');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // Connect to MongoDB
 connectDB();
+app.use(cors());
 
-// Middleware
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000',
-  credentials: true
-}));
+app.use((req, res, next) => {
+  console.log(`Incoming ${req.method} request from ${req.ip} to ${req.url}`);
+  next();
+});
+
+
 app.use(express.json());
-app.use(cookieParser());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }));
+app.use(bodyParser.json({ limit: '50mb' }));
 
+app.use(cookieParser());
+const friendsRouter = require('./routes/friends');
+
+// Add after other route definitions
+app.use('/api/friends', friendsRouter);
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/coffees', coffeeRoutes);
@@ -38,6 +46,8 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV
   });
 });
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.use(express.static(path.join(__dirname, '../../dist')));
 
@@ -54,7 +64,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });

@@ -5,7 +5,7 @@ const Brew = require('../models/Brew');
 const Coffee = require('../models/Coffee');
 const auth = require('../middleware/auth');
 
-// Get all brews for logged-in user
+// Get all brews for logged-in user with filtering
 router.get('/my-brews', auth, async (req, res) => {
   try {
     const {
@@ -13,12 +13,26 @@ router.get('/my-brews', auth, async (req, res) => {
       order = 'desc',
       limit = 50,
       page = 1,
-      coffeeId
+      coffeeId,
+      brewMethod,
+      minRating,
+      maxRating
     } = req.query;
 
     const query = { user: req.userId };
+
     if (coffeeId) {
       query.coffee = coffeeId;
+    }
+
+    if (brewMethod) {
+      query.brewMethod = brewMethod;
+    }
+
+    if (minRating || maxRating) {
+      query.rating = {};
+      if (minRating) query.rating.$gte = parseInt(minRating);
+      if (maxRating) query.rating.$lte = parseInt(maxRating);
     }
 
     const brews = await Brew.find(query)
@@ -39,6 +53,48 @@ router.get('/my-brews', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching brews:', error);
     res.status(500).json({ error: 'Error fetching brews' });
+  }
+});
+
+// Get public brews for a specific coffee
+router.get('/coffee/:coffeeId/public', async (req, res) => {
+  try {
+    const {
+      sortBy = 'createdAt',
+      order = 'desc',
+      limit = 20,
+      page = 1,
+      brewMethod
+    } = req.query;
+
+    const query = {
+      coffee: req.params.coffeeId,
+      isPublic: true
+    };
+
+    if (brewMethod) {
+      query.brewMethod = brewMethod;
+    }
+
+    const brews = await Brew.find(query)
+      .populate('user', 'username')
+      .populate('coffee', 'name roaster')
+      .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const count = await Brew.countDocuments(query);
+
+    res.json({
+      brews,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      total: count
+    });
+  } catch (error) {
+    console.error('Error fetching public brews:', error);
+    res.status(500).json({ error: 'Error fetching public brews' });
   }
 });
 
@@ -95,7 +151,6 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Brew not found' });
     }
 
-    // Extract userId from token if present (optional auth)
     let userId = null;
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (token) {
@@ -108,7 +163,6 @@ router.get('/:id', async (req, res) => {
       }
     }
 
-    // Check if user has access to this brew
     if (!brew.isPublic && (!userId || !brew.user._id.equals(userId))) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -124,13 +178,13 @@ router.get('/:id', async (req, res) => {
 router.post('/', [
   auth,
   body('coffee').isMongoId(),
-  body('brewMethod').isIn(['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Other']),
+  body('brewMethod').isIn(['Espresso', 'Pour Over', 'French Press', 'AeroPress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
   body('brewTemperature').isFloat({ min: 0, max: 100 }),
   body('brewRatio.coffee').isFloat({ min: 0 }),
   body('brewRatio.water').isFloat({ min: 0 }),
   body('grindSize').isIn(['Extra Fine', 'Fine', 'Medium-Fine', 'Medium', 'Medium-Coarse', 'Coarse', 'Extra Coarse']),
   body('brewTime').optional().isInt({ min: 0 }),
-  body('rating').isInt({ min: 1, max: 5 }),
+  body('rating').isInt({ min: 1, max: 10 }),
   body('notes').optional().trim().isLength({ max: 1000 }),
   body('flavorNotes').optional().isArray(),
   body('isPublic').optional().isBoolean(),
@@ -143,19 +197,16 @@ router.post('/', [
   body('extras.modifications').optional().trim()
 ], async (req, res) => {
   try {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    // Verify coffee exists and user has access to it
     const coffee = await Coffee.findById(req.body.coffee);
     if (!coffee) {
       return res.status(404).json({ error: 'Coffee not found' });
     }
 
-    // Check if user has access to this coffee (either they added it or it's public)
     if (!coffee.isPublic && !coffee.addedBy.equals(req.userId)) {
       return res.status(403).json({ error: 'Access denied to this coffee' });
     }
@@ -166,8 +217,6 @@ router.post('/', [
     });
 
     await brew.save();
-
-    // Populate coffee details before sending response
     await brew.populate('coffee', 'name roaster origin roastDate');
 
     res.status(201).json(brew);
@@ -180,19 +229,18 @@ router.post('/', [
 // Update brew
 router.put('/:id', [
   auth,
-  body('brewMethod').optional().isIn(['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Other']),
+  body('brewMethod').optional().isIn(['Espresso', 'Pour Over', 'French Press', 'AeroPress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
   body('brewTemperature').optional().isFloat({ min: 0, max: 100 }),
   body('brewRatio.coffee').optional().isFloat({ min: 0 }),
   body('brewRatio.water').optional().isFloat({ min: 0 }),
   body('grindSize').optional().isIn(['Extra Fine', 'Fine', 'Medium-Fine', 'Medium', 'Medium-Coarse', 'Coarse', 'Extra Coarse']),
   body('brewTime').optional().isInt({ min: 0 }),
-  body('rating').optional().isInt({ min: 1, max: 5 }),
+  body('rating').optional().isInt({ min: 1, max: 10 }),
   body('notes').optional().trim().isLength({ max: 1000 }),
   body('flavorNotes').optional().isArray(),
   body('isPublic').optional().isBoolean()
 ], async (req, res) => {
   try {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -243,7 +291,6 @@ router.post('/:id/like', auth, async (req, res) => {
       return res.status(404).json({ error: 'Brew not found' });
     }
 
-    // Check if brew is public or belongs to user
     if (!brew.isPublic && !brew.user.equals(req.userId)) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -251,10 +298,8 @@ router.post('/:id/like', auth, async (req, res) => {
     const userIndex = brew.likes.indexOf(req.userId);
 
     if (userIndex > -1) {
-      // User already liked, so unlike
       brew.likes.splice(userIndex, 1);
     } else {
-      // User hasn't liked, so add like
       brew.likes.push(req.userId);
     }
 
@@ -325,10 +370,9 @@ router.get('/export/csv', auth, async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (!Array.isArray(brews) || brews.length === 0) {
-      return res.status(204).send(); // No Content
+      return res.status(204).send();
     }
 
-    // Define fields for CSV export
     const fields = [
       'coffeeName',
       'roaster',
@@ -340,13 +384,12 @@ router.get('/export/csv', auth, async (req, res) => {
       'brewTime',
       'rating',
       'notes',
+      'isPublic',
       'createdAt'
     ];
 
-    // Create the CSV header
     const csvHeader = fields.join(',');
 
-    // Convert each brew to CSV row
     const csvRows = brews.map(brew => {
       const row = {
         coffeeName: brew.coffee.name,
@@ -359,6 +402,7 @@ router.get('/export/csv', auth, async (req, res) => {
         brewTime: brew.brewTime ? `${Math.floor(brew.brewTime / 60)}:${(brew.brewTime % 60).toString().padStart(2, '0')}` : '',
         rating: brew.rating,
         notes: brew.notes || '',
+        isPublic: brew.isPublic ? 'Yes' : 'No',
         createdAt: brew.createdAt.toISOString()
       };
 
@@ -373,7 +417,6 @@ router.get('/export/csv', auth, async (req, res) => {
 
     const csvData = [csvHeader, ...csvRows].join('\n');
 
-    // Set headers for CSV download
     res.setHeader('Content-Disposition', `attachment; filename="brew-history-${new Date().toISOString().split('T')[0]}.csv"`);
     res.setHeader('Content-Type', 'text/csv');
     res.send(csvData);

@@ -55,7 +55,7 @@ const brewSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 1,
-    max: 5
+    max: 10
   },
   // Tasting notes for this brew
   notes: {
@@ -112,7 +112,7 @@ brewSchema.pre('save', function (next) {
 });
 
 // Virtual for brew ratio as string (e.g., "1:15")
-brewSchema.virtual('brewRatioString').get(function() {
+brewSchema.virtual('brewRatioString').get(function () {
   if (this.brewRatio && this.brewRatio.coffee && this.brewRatio.water) {
     const ratio = this.brewRatio.water / this.brewRatio.coffee;
     return `1:${ratio.toFixed(1)}`;
@@ -121,12 +121,12 @@ brewSchema.virtual('brewRatioString').get(function() {
 });
 
 // Virtual for likes count
-brewSchema.virtual('likesCount').get(function() {
+brewSchema.virtual('likesCount').get(function () {
   return this.likes ? this.likes.length : 0;
 });
 
 // Method to check if a user has liked this brew
-brewSchema.methods.isLikedBy = function(userId) {
+brewSchema.methods.isLikedBy = function (userId) {
   return this.likes.some(id => id.equals(userId));
 };
 

@@ -1,3 +1,4 @@
+// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -8,9 +9,13 @@ import PrivateRoute from './components/auth/PrivateRoute';
 import CoffeeList from './components/coffee/CoffeeList';
 import BrewList from './components/brew/BrewList';
 import Dashboard from './components/Dashboard';
+import ProfilePage from './components/profile/ProfilePage';
+import FriendProfile from './components/friends/FriendProfile';
 import './styles/app.css';
 import './styles/brew-styles.css';
 import './styles/dashboard-styles.css';
+import './styles/profile-styles.css';
+import './styles/friends-styles.css';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -28,7 +33,9 @@ function App() {
                 path="/dashboard"
                 element={
                   <PrivateRoute>
-                    <Dashboard />
+                    <ErrorBoundary>
+                      <Dashboard />
+                    </ErrorBoundary>
                   </PrivateRoute>
                 }
               />
@@ -36,7 +43,9 @@ function App() {
                 path="/coffees"
                 element={
                   <PrivateRoute>
-                    <CoffeeList />
+                    <ErrorBoundary>
+                      <CoffeeList />
+                    </ErrorBoundary>
                   </PrivateRoute>
                 }
               />
@@ -52,7 +61,31 @@ function App() {
               />
               <Route
                 path="/discover"
-                element={<BrewList viewMode="public" />}
+                element={
+                  <ErrorBoundary>
+                    <BrewList viewMode="public" />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <ErrorBoundary>
+                      <ProfilePage />
+                    </ErrorBoundary>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/friends/:friendId"
+                element={
+                  <PrivateRoute>
+                    <ErrorBoundary>
+                      <FriendProfile />
+                    </ErrorBoundary>
+                  </PrivateRoute>
+                }
               />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -101,8 +134,8 @@ const HomePage = () => {
           <p>Like and save interesting brews from the community</p>
         </div>
         <div className="feature">
-          <h3>💾 Export Your Data</h3>
-          <p>Download your complete brew history anytime</p>
+          <h3>👥 Connect with Friends</h3>
+          <p>Add friends and see their coffee discoveries</p>
         </div>
       </div>
     </div>

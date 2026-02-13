@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toggleBrewLike } from '../../api/brew';
 import { useAuth } from '../../contexts/AuthContext';
-import StarRating from '../common/StarRatingComponent';
+import StarRating from '../common/StarRating';
 
 const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
   const { user } = useAuth();

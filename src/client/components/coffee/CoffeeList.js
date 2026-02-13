@@ -20,14 +20,16 @@ const CoffeeList = () => {
   const fetchCoffees = async () => {
     try {
       setLoading(true);
+      console.log('Fetching coffees with params:', { sortBy, order: sortOrder });
       const response = await getCoffees({
         sortBy,
         order: sortOrder
       });
+      console.log('Coffees response:', response);
       setCoffees(response.coffees);
     } catch (err) {
+      console.error('Failed to load coffees:', err);
       setError('Failed to load coffees');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -35,7 +37,9 @@ const CoffeeList = () => {
 
   const fetchStats = async () => {
     try {
+      console.log('Fetching stats...');
       const response = await getStats();
+      console.log('Stats response:', response);
       setStats(response);
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -77,16 +81,7 @@ const CoffeeList = () => {
 
   const handleExport = async () => {
     try {
-      const data = await exportData();
-      const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `coffee-ratings-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await exportData();
     } catch (err) {
       console.error('Failed to export data:', err);
     }
@@ -120,18 +115,18 @@ const CoffeeList = () => {
         </div>
       </div>
 
-      {stats && (
+      {stats?.summary && (
         <div className="coffee-stats">
           <div className="stat-card">
-            <h3>{stats.summary.totalCoffees}</h3>
+            <h3>{stats.summary.totalCoffees ?? 0}</h3>
             <p>Total Coffees</p>
           </div>
           <div className="stat-card">
-            <h3>{stats.summary.averageRating?.toFixed(1) || '0'}</h3>
+            <h3>{stats.summary.averageRating?.toFixed(1) ?? '0'}</h3>
             <p>Average Rating</p>
           </div>
           <div className="stat-card">
-            <h3>${stats.summary.totalSpent?.toFixed(2) || '0'}</h3>
+            <h3>${stats.summary.totalSpent?.toFixed(2) ?? '0'}</h3>
             <p>Total Spent</p>
           </div>
         </div>

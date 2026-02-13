@@ -1,64 +1,143 @@
+// src/api/coffee.js
 import axios from 'axios';
 
-const API_BASE_URL = '/api/coffees';
+const API_BASE_URL = '/api';
 
-// Configure axios defaults
-axios.defaults.withCredentials = true;
+// Create axios instance with auth interceptor (matching brew.js pattern)
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true
+});
+
+// Add auth token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Get all coffees with pagination and sorting
 export const getCoffees = async (params = {}) => {
-  const response = await axios.get(API_BASE_URL, { params });
-  return response.data;
-}
+  try {
+    const response = await api.get('/coffees', { params });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Get single coffee
 export const getCoffee = async (id) => {
-  const response = await axios.get(`${API_BASE_URL}/${id}`);
-  return response.data;
-}
+  try {
+    const response = await api.get(`/coffees/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Create new coffee
 export const createCoffee = async (coffeeData) => {
-  const response = await axios.post(API_BASE_URL, coffeeData);
-  return response.data;
-}
+  try {
+    const response = await api.post('/coffees', coffeeData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Update coffee
 export const updateCoffee = async (id, coffeeData) => {
-  const response = await axios.put(`${API_BASE_URL}/${id}`, coffeeData);
-  return response.data;
-}
+  try {
+    const response = await api.put(`/coffees/${id}`, coffeeData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Delete coffee
 export const deleteCoffee = async (id) => {
-  const response = await axios.delete(`${API_BASE_URL}/${id}`);
-  return response.data;
-}
+  try {
+    const response = await api.delete(`/coffees/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Get popular coffees
 export const getPopularCoffees = async (limit = 10) => {
-  const response = await axios.get(`${API_BASE_URL}/popular/top`, {
-    params: { limit }
-  });
-  return response.data;
-}
+  try {
+    const response = await api.get('/coffees/popular/top', {
+      params: { limit }
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Search coffees (autocomplete)
 export const searchCoffees = async (query, field = 'all') => {
-  const response = await axios.get(`${API_BASE_URL}/search/autocomplete`, {
-    params: { q: query, field }
-  });
-  return response.data;
-}
+  try {
+    const response = await api.get('/coffees/search/autocomplete', {
+      params: { q: query, field }
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Export coffee data
 export const exportData = async () => {
-  const response = await axios.get(`${API_BASE_URL}/export/csv`);
-  return response.data;
-}
+  try {
+    const response = await api.get('/coffees/export/csv', {
+      responseType: 'blob'
+    });
+
+    // Create download link - ALREADY HANDLES THE BLOB
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `coffee-data-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    return true;  // Returns true, not data
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 // Get statistics
 export const getStats = async () => {
-  const response = await axios.get(`${API_BASE_URL}/stats/summary`);
-  return response.data;
-}
+  try {
+    const response = await api.get('/coffees/stats/summary');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};

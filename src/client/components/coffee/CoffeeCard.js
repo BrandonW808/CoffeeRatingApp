@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import StarRating from '../common/StarRating';
 
 const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -17,8 +18,10 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const renderStars = (rating) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+  const renderStars = (rating, max = 10) => {
+    if (!rating && rating !== 0) return '☆'.repeat(max);
+    const safeRating = Math.max(0, Math.min(max, Math.round(rating)));
+    return '★'.repeat(safeRating) + '☆'.repeat(max - safeRating);
   };
 
   if (isEditing) {
@@ -86,7 +89,7 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
     <div className="coffee-card">
       <div className="card-header">
         <h3>{coffee.name}</h3>
-        <span className="rating">{renderStars(coffee.rating)}</span>
+        <StarRating rating={coffee.userAvgRating || coffee.rating} max={10} />
       </div>
       <div className="card-body">
         <p><strong>Roaster:</strong> {coffee.roaster}</p>

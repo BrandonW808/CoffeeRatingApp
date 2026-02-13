@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import StarRating from '../common/StarRatingComponent';
+import StarRating from '../common/StarRating';
 
 const BrewDetails = ({ brew, onClose, onEdit }) => {
   const formatBrewTime = (seconds) => {

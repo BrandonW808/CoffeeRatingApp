@@ -34,7 +34,7 @@ body {
   background-color: #2c3e50;
   color: white;
   padding: 1rem 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .nav-container {
@@ -113,7 +113,7 @@ body {
 }
 
 .btn-logout:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .btn-large {
@@ -131,7 +131,7 @@ body {
   background: white;
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .auth-card h2 {
@@ -224,7 +224,7 @@ body {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
@@ -265,13 +265,13 @@ body {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s;
 }
 
 .coffee-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .coffee-card.editing {
@@ -354,7 +354,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -444,7 +444,7 @@ body {
   background: white;
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .feature h3 {
@@ -475,8 +475,13 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-state {
@@ -491,29 +496,29 @@ body {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .coffee-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
-  
+
   .header-actions {
     flex-direction: column;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .coffee-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .hero h1 {
     font-size: 2rem;
   }
-  
+
   .hero-actions {
     flex-direction: column;
     align-items: center;

@@ -4,10 +4,13 @@ const { body, validationResult } = require('express-validator');
 const Coffee = require('../models/Coffee');
 const Brew = require('../models/Brew');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
-// Get all coffees (user's private + public coffees)
+// Get all coffees with advanced filtering and sorting
+// server/routes/coffees.js - Replace the GET / route
 router.get('/', auth, async (req, res) => {
   try {
+    console.log(`Getting coffees`);
     const {
       sortBy = 'createdAt',
       order = 'desc',
@@ -16,74 +19,298 @@ router.get('/', auth, async (req, res) => {
       search,
       roaster,
       origin,
-      onlyMine = false
+      onlyMine = false,
+      brewMethod,
+      minRating,
+      maxRating,
+      roastLevel,
+      processingMethod,
+      minPrice,
+      maxPrice
     } = req.query;
 
-    // Build query
-    const query = {};
-
-    // If user is authenticated and wants only their coffees
+    // Base query for access control
+    const baseQuery = {};
     if (req.userId && onlyMine === 'true') {
-      query.addedBy = req.userId;
+      baseQuery.addedBy = new mongoose.Types.ObjectId(req.userId);
     } else {
-      // Show public coffees and user's private coffees
-      query.$or = [
-        { isPublic: true }
-      ];
+      baseQuery.$or = [{ isPublic: true }];
       if (req.userId) {
-        query.$or.push({ addedBy: req.userId });
+        baseQuery.$or.push({ addedBy: new mongoose.Types.ObjectId(req.userId) });
       }
     }
 
-    // Add search filters
+    // Additional filters
     if (search) {
-      query.$text = { $search: search };
+      baseQuery.$text = { $search: search };
     }
     if (roaster) {
-      query.roaster = new RegExp(roaster, 'i');
+      baseQuery.roaster = new RegExp(roaster, 'i');
     }
     if (origin) {
-      query.origin = new RegExp(origin, 'i');
+      baseQuery.origin = new RegExp(origin, 'i');
+    }
+    if (roastLevel) {
+      baseQuery.roastLevel = roastLevel;
+    }
+    if (processingMethod) {
+      baseQuery.processingMethod = processingMethod;
+    }
+    if (minPrice || maxPrice) {
+      baseQuery.price = {};
+      if (minPrice) baseQuery.price.$gte = parseFloat(minPrice);
+      if (maxPrice) baseQuery.price.$lte = parseFloat(maxPrice);
     }
 
-    const coffees = await Coffee.find(query)
+    // If filtering by brew method, we need aggregation
+    if (brewMethod && req.userId) {
+      const pipeline = [
+        { $match: baseQuery },
+        {
+          $lookup: {
+            from: 'brews',
+            let: { coffeeId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$coffee', '$$coffeeId'] },
+                  user: new mongoose.Types.ObjectId(req.userId),
+                  brewMethod: brewMethod
+                }
+              }
+            ],
+            as: 'methodBrews'
+          }
+        },
+        {
+          $match: {
+            'methodBrews.0': { $exists: true }
+          }
+        },
+        {
+          $addFields: {
+            userBrewCount: { $size: '$methodBrews' },
+            userAvgRating: { $avg: '$methodBrews.rating' }
+          }
+        }
+      ];
+
+      if (minRating) {
+        pipeline.push({ $match: { userAvgRating: { $gte: parseFloat(minRating) } } });
+      }
+      if (maxRating) {
+        pipeline.push({ $match: { userAvgRating: { $lte: parseFloat(maxRating) } } });
+      }
+
+      let sortStage = {};
+      if (sortBy === 'rating' || sortBy === 'avgRating') {
+        sortStage = { userAvgRating: order === 'desc' ? -1 : 1, createdAt: -1 };
+      } else if (sortBy === 'price') {
+        sortStage = { price: order === 'desc' ? -1 : 1, createdAt: -1 };
+      } else {
+        sortStage = { [sortBy]: order === 'desc' ? -1 : 1 };
+      }
+      pipeline.push({ $sort: sortStage });
+
+      const countPipeline = [...pipeline, { $count: 'total' }];
+      const countResult = await Coffee.aggregate(countPipeline);
+      const count = countResult[0]?.total || 0;
+
+      pipeline.push({ $skip: (parseInt(page) - 1) * parseInt(limit) });
+      pipeline.push({ $limit: parseInt(limit) });
+
+      pipeline.push({
+        $lookup: {
+          from: 'users',
+          localField: 'addedBy',
+          foreignField: '_id',
+          as: 'addedByUser'
+        }
+      });
+      pipeline.push({
+        $addFields: {
+          addedBy: { $arrayElemAt: ['$addedByUser', 0] }
+        }
+      });
+      pipeline.push({
+        $project: {
+          methodBrews: 0,
+          addedByUser: 0,
+          'addedBy.password': 0,
+          'addedBy.email': 0,
+          'addedBy.passwordResetToken': 0,
+          'addedBy.passwordResetExpires': 0
+        }
+      });
+
+      const coffees = await Coffee.aggregate(pipeline);
+
+      return res.json({
+        coffees,
+        totalPages: Math.ceil(count / parseInt(limit)),
+        currentPage: parseInt(page),
+        total: count
+      });
+    }
+
+    // Sorting by rating without brew method filter
+    if ((sortBy === 'rating' || sortBy === 'avgRating') && req.userId) {
+      const pipeline = [
+        { $match: baseQuery },
+        {
+          $lookup: {
+            from: 'brews',
+            let: { coffeeId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$coffee', '$$coffeeId'] },
+                  user: new mongoose.Types.ObjectId(req.userId)
+                }
+              }
+            ],
+            as: 'userBrews'
+          }
+        },
+        {
+          $addFields: {
+            userBrewCount: { $size: '$userBrews' },
+            userAvgRating: {
+              $cond: {
+                if: { $gt: [{ $size: '$userBrews' }, 0] },
+                then: { $avg: '$userBrews.rating' },
+                else: null
+              }
+            }
+          }
+        }
+      ];
+
+      if (minRating) {
+        pipeline.push({ $match: { userAvgRating: { $gte: parseFloat(minRating) } } });
+      }
+      if (maxRating) {
+        pipeline.push({ $match: { userAvgRating: { $lte: parseFloat(maxRating) } } });
+      }
+
+      // Sort with nulls last
+      pipeline.push({
+        $addFields: {
+          hasRating: { $cond: { if: { $eq: ['$userAvgRating', null] }, then: 0, else: 1 } }
+        }
+      });
+
+      pipeline.push({
+        $sort: {
+          hasRating: -1, // Rated items first
+          userAvgRating: order === 'desc' ? -1 : 1,
+          createdAt: -1
+        }
+      });
+
+      const countPipeline = [...pipeline, { $count: 'total' }];
+      const countResult = await Coffee.aggregate(countPipeline);
+      const count = countResult[0]?.total || 0;
+
+      pipeline.push({ $skip: (parseInt(page) - 1) * parseInt(limit) });
+      pipeline.push({ $limit: parseInt(limit) });
+
+      pipeline.push({
+        $lookup: {
+          from: 'users',
+          localField: 'addedBy',
+          foreignField: '_id',
+          as: 'addedByUser'
+        }
+      });
+      pipeline.push({
+        $addFields: {
+          addedBy: { $arrayElemAt: ['$addedByUser', 0] }
+        }
+      });
+      pipeline.push({
+        $project: {
+          userBrews: 0,
+          addedByUser: 0,
+          hasRating: 0,
+          'addedBy.password': 0,
+          'addedBy.email': 0,
+          'addedBy.passwordResetToken': 0,
+          'addedBy.passwordResetExpires': 0
+        }
+      });
+
+      const coffees = await Coffee.aggregate(pipeline);
+
+      return res.json({
+        coffees,
+        totalPages: Math.ceil(count / parseInt(limit)),
+        currentPage: parseInt(page),
+        total: count
+      });
+    }
+
+    // If sorting by rating but no userId, fall back to createdAt
+    let effectiveSortBy = sortBy;
+    if ((sortBy === 'rating' || sortBy === 'avgRating') && !req.userId) {
+      effectiveSortBy = 'createdAt';
+    }
+
+    // Standard sorting
+    let sortConfig = { [effectiveSortBy]: order === 'desc' ? -1 : 1 };
+
+    const coffees = await Coffee.find(baseQuery)
       .populate('addedBy', 'username')
-      .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .sort(sortConfig)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .exec();
 
-    const count = await Coffee.countDocuments(query);
+    const count = await Coffee.countDocuments(baseQuery);
 
-    // For each coffee, get the user's brew count if authenticated
-    if (req.userId) {
-      const coffeesWithBrewCount = await Promise.all(
-        coffees.map(async (coffee) => {
-          const brewCount = await Brew.countDocuments({
-            coffee: coffee._id,
-            user: req.userId
-          });
-          return {
-            ...coffee.toObject(),
-            userBrewCount: brewCount
-          };
-        })
-      );
+    // Add brew stats for each coffee
+    let coffeesWithBrewCount = coffees.map((c) => c.toObject());
 
-      res.json({
-        coffees: coffeesWithBrewCount,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        total: count
+    if (req.userId && coffees.length > 0) {
+      const coffeeIds = coffees.map((c) => c._id);
+
+      const brewStats = await Brew.aggregate([
+        {
+          $match: {
+            coffee: { $in: coffeeIds },
+            user: new mongoose.Types.ObjectId(req.userId)
+          }
+        },
+        {
+          $group: {
+            _id: '$coffee',
+            count: { $sum: 1 },
+            avgRating: { $avg: '$rating' },
+          },
+        },
+      ]);
+
+      const statsMap = new Map();
+      brewStats.forEach((bs) => {
+        statsMap.set(bs._id.toString(), { count: bs.count, avgRating: bs.avgRating });
       });
-    } else {
-      res.json({
-        coffees,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        total: count
+
+      coffeesWithBrewCount = coffeesWithBrewCount.map((coffee) => {
+        const stats = statsMap.get(coffee._id.toString());
+        return {
+          ...coffee,
+          userBrewCount: stats?.count || 0,
+          userAvgRating: stats?.avgRating || null,
+        };
       });
     }
+
+    res.json({
+      coffees: coffeesWithBrewCount,
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
+      total: count,
+    });
   } catch (error) {
     console.error('Error fetching coffees:', error);
     res.status(500).json({ error: 'Error fetching coffees' });
@@ -91,7 +318,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Get single coffee by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
     const coffee = await Coffee.findById(req.params.id)
       .populate('addedBy', 'username');
@@ -100,12 +327,10 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Coffee not found' });
     }
 
-    // Check if user has access to this coffee
     if (!coffee.isPublic && (!req.userId || !coffee.addedBy._id.equals(req.userId))) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Get brew statistics for this coffee
     const brewStats = await Brew.aggregate([
       { $match: { coffee: coffee._id, isPublic: true } },
       {
@@ -123,13 +348,19 @@ router.get('/:id', async (req, res) => {
       brewStats: brewStats[0] || { totalBrews: 0, averageRating: 0, brewMethods: [] }
     };
 
-    // If user is authenticated, get their brew count
     if (req.userId) {
-      const userBrewCount = await Brew.countDocuments({
-        coffee: coffee._id,
-        user: req.userId
-      });
-      response.userBrewCount = userBrewCount;
+      const userBrewStats = await Brew.aggregate([
+        { $match: { coffee: coffee._id, user: new mongoose.Types.ObjectId(req.userId) } },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            avgRating: { $avg: '$rating' }
+          }
+        }
+      ]);
+      response.userBrewCount = userBrewStats[0]?.count || 0;
+      response.userAvgRating = userBrewStats[0]?.avgRating || null;
     }
 
     res.json(response);
@@ -156,13 +387,11 @@ router.post('/', [
   body('isPublic').optional().isBoolean()
 ], async (req, res) => {
   try {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    // Check if similar coffee already exists
     const existingCoffee = await Coffee.findOne({
       name: req.body.name,
       roaster: req.body.roaster,
@@ -216,7 +445,6 @@ router.put('/:id', [
   body('isPublic').optional().isBoolean()
 ], async (req, res) => {
   try {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -239,10 +467,9 @@ router.put('/:id', [
   }
 });
 
-// Delete coffee (only if no brews reference it)
+// Delete coffee
 router.delete('/:id', auth, async (req, res) => {
   try {
-    // Check if coffee exists and belongs to user
     const coffee = await Coffee.findOne({
       _id: req.params.id,
       addedBy: req.userId
@@ -252,7 +479,6 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Coffee not found or access denied' });
     }
 
-    // Check if any brews reference this coffee
     const brewCount = await Brew.countDocuments({ coffee: req.params.id });
 
     if (brewCount > 0) {
@@ -271,7 +497,149 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Get popular coffees (most brewed publicly)
+// Rest of the routes remain the same...
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../uploads/barcodes');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `barcode-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowed.test(file.mimetype);
+    if (ext && mime) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+router.get('/barcode/:barcode', auth, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+
+    const coffee = await Coffee.findOne({
+      barcode: barcode,
+      $or: [
+        { addedBy: req.userId },
+        { isPublic: true }
+      ]
+    }).populate('addedBy', 'username');
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found for this barcode' });
+    }
+
+    const userBrewCount = await Brew.countDocuments({
+      coffee: coffee._id,
+      user: req.userId
+    });
+
+    res.json({
+      ...coffee.toObject(),
+      userBrewCount
+    });
+  } catch (error) {
+    console.error('Error looking up barcode:', error);
+    res.status(500).json({ error: 'Error looking up barcode' });
+  }
+});
+
+router.put('/:id/barcode', auth, upload.single('barcodeImage'), async (req, res) => {
+  try {
+    const { barcode } = req.body;
+
+    if (!barcode) {
+      return res.status(400).json({ error: 'Barcode is required' });
+    }
+
+    const existingCoffee = await Coffee.findOne({
+      barcode: barcode,
+      _id: { $ne: req.params.id }
+    });
+
+    if (existingCoffee) {
+      return res.status(409).json({
+        error: 'This barcode is already assigned to another coffee',
+        existingCoffee: {
+          _id: existingCoffee._id,
+          name: existingCoffee.name,
+          roaster: existingCoffee.roaster
+        }
+      });
+    }
+
+    const updateData = {
+      barcode: barcode,
+      updatedAt: Date.now()
+    };
+
+    if (req.file) {
+      updateData.barcodeImage = `/uploads/barcodes/${req.file.filename}`;
+    }
+
+    const coffee = await Coffee.findOneAndUpdate(
+      { _id: req.params.id, addedBy: req.userId },
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('addedBy', 'username');
+
+    if (!coffee) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    res.json(coffee);
+  } catch (error) {
+    console.error('Error assigning barcode:', error);
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Error assigning barcode' });
+  }
+});
+
+router.delete('/:id/barcode', auth, async (req, res) => {
+  try {
+    const coffee = await Coffee.findOneAndUpdate(
+      { _id: req.params.id, addedBy: req.userId },
+      {
+        $unset: { barcode: 1, barcodeImage: 1 },
+        updatedAt: Date.now()
+      },
+      { new: true }
+    );
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    res.json({ message: 'Barcode removed', coffee });
+  } catch (error) {
+    console.error('Error removing barcode:', error);
+    res.status(500).json({ error: 'Error removing barcode' });
+  }
+});
+
 router.get('/popular/top', async (req, res) => {
   try {
     const { limit = 10 } = req.query;
@@ -313,7 +681,6 @@ router.get('/popular/top', async (req, res) => {
   }
 });
 
-// Search for coffees by name, roaster, or origin
 router.get('/search/autocomplete', async (req, res) => {
   try {
     const { q, field = 'all' } = req.query;
@@ -325,7 +692,6 @@ router.get('/search/autocomplete', async (req, res) => {
     const searchRegex = new RegExp(q, 'i');
     const query = { isPublic: true };
 
-    // Add user's private coffees if authenticated
     if (req.userId) {
       query.$or = [
         { isPublic: true },
@@ -369,12 +735,10 @@ router.get('/search/autocomplete', async (req, res) => {
   }
 });
 
-// Export user's coffee data as JSON
 router.get('/export/json', auth, async (req, res) => {
   try {
-    const coffees = await Coffee.find({ userId: req.userId })
+    const coffees = await Coffee.find({ addedBy: req.userId })
       .sort({ createdAt: -1 });
-
     res.json(coffees);
   } catch (error) {
     console.error('Error exporting data:', error);
@@ -382,32 +746,30 @@ router.get('/export/json', auth, async (req, res) => {
   }
 });
 
-// Export user's coffee data as a CSV
 router.get('/export/csv', auth, async (req, res) => {
   try {
-    const coffees = await Coffee.find({ userId: req.userId }).sort({ createdAt: -1 });
+    const coffees = await Coffee.find({ addedBy: req.userId }).sort({ createdAt: -1 });
 
     if (!Array.isArray(coffees) || coffees.length === 0) {
-      return res.status(204).send(); // No Content
+      return res.status(204).send();
     }
 
-    // Define important user-facing fields
     const fields = [
       'name',
       'roaster',
       'origin',
-      'brewMethod',
+      'processingMethod',
+      'roastLevel',
       'roastDate',
-      'purchaseDate',
-      'rating',
+      'variety',
+      'altitude',
+      'flavorNotes',
       'price',
-      'notes'
+      'isPublic',
     ];
 
-    // Create the CSV header
     const csvHeader = fields.join(',');
 
-    // Convert each coffee entry to CSV row
     const csvRows = coffees.map(coffee => {
       return fields.map(field => {
         let val = coffee[field];
@@ -416,6 +778,8 @@ router.get('/export/csv', auth, async (req, res) => {
           val = val.join(';');
         } else if (val instanceof Date) {
           val = val.toISOString();
+        } else if (typeof val === 'boolean') {
+          val = val ? 'Yes' : 'No';
         } else if (typeof val === 'object' && val !== null) {
           val = JSON.stringify(val);
         }
@@ -430,8 +794,7 @@ router.get('/export/csv', auth, async (req, res) => {
 
     const csvData = [csvHeader, ...csvRows].join('\n');
 
-    // Set headers for CSV download
-    res.setHeader('Content-Disposition', `attachment; filename="coffee-ratings-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="coffee-export-${new Date().toISOString().split('T')[0]}.csv"`);
     res.setHeader('Content-Type', 'text/csv');
     res.send(csvData);
   } catch (error) {
@@ -440,189 +803,48 @@ router.get('/export/csv', auth, async (req, res) => {
   }
 });
 
-// Get coffee statistics
 router.get('/stats/summary', auth, async (req, res) => {
   try {
     const stats = await Coffee.aggregate([
-      { $match: { userId: req.userId } },
+      { $match: { addedBy: new mongoose.Types.ObjectId(req.userId) } },
       {
         $group: {
           _id: null,
           totalCoffees: { $sum: 1 },
-          averageRating: { $avg: '$rating' },
-          totalSpent: { $sum: '$price' },
-          favoriteBrewMethod: { $first: '$brewMethod' }
+          totalSpent: { $sum: { $ifNull: ['$price', 0] } },
         }
       }
     ]);
 
-    const brewMethodCounts = await Coffee.aggregate([
-      { $match: { userId: req.userId } },
+    const brewStats = await Brew.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(req.userId) } },
+      {
+        $group: {
+          _id: null,
+          totalBrews: { $sum: 1 },
+          averageRating: { $avg: '$rating' },
+        }
+      }
+    ]);
+
+    const brewMethodCounts = await Brew.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(req.userId) } },
       { $group: { _id: '$brewMethod', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]);
 
     res.json({
-      summary: stats[0] || {
-        totalCoffees: 0,
-        averageRating: 0,
-        totalSpent: 0
+      summary: {
+        totalCoffees: stats[0]?.totalCoffees || 0,
+        totalSpent: stats[0]?.totalSpent || 0,
+        totalBrews: brewStats[0]?.totalBrews || 0,
+        averageRating: brewStats[0]?.averageRating || 0,
       },
       brewMethodDistribution: brewMethodCounts
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Error fetching statistics' });
-  }
-});
-
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-// Configure multer for barcode image uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/barcodes');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `barcode-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|webp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext && mime) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  },
-});
-
-// Get coffee by barcode
-router.get('/barcode/:barcode', auth, async (req, res) => {
-  try {
-    const { barcode } = req.params;
-
-    const coffee = await Coffee.findOne({
-      barcode: barcode,
-      $or: [
-        { addedBy: req.userId },
-        { isPublic: true }
-      ]
-    }).populate('addedBy', 'username');
-
-    if (!coffee) {
-      return res.status(404).json({ error: 'Coffee not found for this barcode' });
-    }
-
-    // Get brew stats
-    const userBrewCount = await Brew.countDocuments({
-      coffee: coffee._id,
-      user: req.userId
-    });
-
-    res.json({
-      ...coffee.toObject(),
-      userBrewCount
-    });
-  } catch (error) {
-    console.error('Error looking up barcode:', error);
-    res.status(500).json({ error: 'Error looking up barcode' });
-  }
-});
-
-// Assign barcode to coffee (with optional image)
-router.put('/:id/barcode', auth, upload.single('barcodeImage'), async (req, res) => {
-  try {
-    const { barcode } = req.body;
-
-    if (!barcode) {
-      return res.status(400).json({ error: 'Barcode is required' });
-    }
-
-    // Check if this barcode is already assigned to another coffee
-    const existingCoffee = await Coffee.findOne({
-      barcode: barcode,
-      _id: { $ne: req.params.id }
-    });
-
-    if (existingCoffee) {
-      return res.status(409).json({
-        error: 'This barcode is already assigned to another coffee',
-        existingCoffee: {
-          _id: existingCoffee._id,
-          name: existingCoffee.name,
-          roaster: existingCoffee.roaster
-        }
-      });
-    }
-
-    const updateData = {
-      barcode: barcode,
-      updatedAt: Date.now()
-    };
-
-    // If an image was uploaded, store its path
-    if (req.file) {
-      updateData.barcodeImage = `/uploads/barcodes/${req.file.filename}`;
-    }
-
-    const coffee = await Coffee.findOneAndUpdate(
-      { _id: req.params.id, addedBy: req.userId },
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('addedBy', 'username');
-
-    if (!coffee) {
-      // Clean up uploaded file if coffee not found
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(404).json({ error: 'Coffee not found or access denied' });
-    }
-
-    res.json(coffee);
-  } catch (error) {
-    console.error('Error assigning barcode:', error);
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({ error: 'Error assigning barcode' });
-  }
-});
-
-// Remove barcode from coffee
-router.delete('/:id/barcode', auth, async (req, res) => {
-  try {
-    const coffee = await Coffee.findOneAndUpdate(
-      { _id: req.params.id, addedBy: req.userId },
-      {
-        $unset: { barcode: 1, barcodeImage: 1 },
-        updatedAt: Date.now()
-      },
-      { new: true }
-    );
-
-    if (!coffee) {
-      return res.status(404).json({ error: 'Coffee not found or access denied' });
-    }
-
-    res.json({ message: 'Barcode removed', coffee });
-  } catch (error) {
-    console.error('Error removing barcode:', error);
-    res.status(500).json({ error: 'Error removing barcode' });
   }
 });
 
