@@ -1,9 +1,51 @@
 import React, { useState } from 'react';
 import StarRating from '../common/StarRating';
+import ImageUpload from '../common/ImageUpload';
+import {
+  uploadCoffeeImages,
+  deleteCoffeeImage,
+  setPrimaryImage,
+} from '../../api/coffee';
 
-const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
+const CoffeeCard = ({ coffee, onUpdate, onDelete, onRefresh }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [showImageManager, setShowImageManager] = useState(false);
   const [editData, setEditData] = useState(coffee);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString();
+
+  // ── Image carousel navigation ──
+  const images = coffee.images || [];
+  const hasImages = images.length > 0;
+
+  const nextImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((i) => (i + 1) % images.length);
+  };
+  const prevImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
+  };
+
+  // ── Image management handlers ──
+  const handleImageUpload = async (files) => {
+    await uploadCoffeeImages(coffee._id, files);
+    if (onRefresh) onRefresh(); // re-fetch from parent
+  };
+
+  const handleImageDelete = async (imageId) => {
+    if (window.confirm('Delete this image?')) {
+      await deleteCoffeeImage(coffee._id, imageId);
+      if (onRefresh) onRefresh();
+    }
+  };
+
+  const handleSetPrimary = async (imageId) => {
+    await setPrimaryImage(coffee._id, imageId);
+    if (onRefresh) onRefresh();
+  };
 
   const handleSave = async () => {
     try {
@@ -12,16 +54,6 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
     } catch (error) {
       console.error('Failed to update coffee:', error);
     }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const renderStars = (rating, max = 10) => {
-    if (!rating && rating !== 0) return '☆'.repeat(max);
-    const safeRating = Math.max(0, Math.min(max, Math.round(rating)));
-    return '★'.repeat(safeRating) + '☆'.repeat(max - safeRating);
   };
 
   if (isEditing) {
@@ -87,32 +119,90 @@ const CoffeeCard = ({ coffee, onUpdate, onDelete }) => {
 
   return (
     <div className="coffee-card">
+      {/* ── Image Section ──────────────────── */}
+      <div className="card-image-section">
+        {hasImages ? (
+          <div className="image-carousel">
+            <img
+              src={images[currentImageIndex].url}
+              alt={coffee.name}
+              className="card-hero-image"
+              loading="lazy"
+            />
+            {images.length > 1 && (
+              <>
+                <button className="carousel-btn prev" onClick={prevImage}>
+                  ‹
+                </button>
+                <button className="carousel-btn next" onClick={nextImage}>
+                  ›
+                </button>
+                <div className="carousel-dots">
+                  {images.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`dot ${i === currentImageIndex ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(i);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="card-image-placeholder">
+            <span>☕</span>
+            <p>No photos yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Card Content ───────────────────── */}
       <div className="card-header">
         <h3>{coffee.name}</h3>
         <StarRating rating={coffee.userAvgRating || coffee.rating} max={10} />
       </div>
+
       <div className="card-body">
         <p><strong>Roaster:</strong> {coffee.roaster}</p>
         <p><strong>Origin:</strong> {coffee.origin}</p>
         <p><strong>Roast Date:</strong> {formatDate(coffee.roastDate)}</p>
-        <p><strong>Public:</strong> {coffee.isPublic ? "Yes" : "No"}</p>
-        {coffee.price && <p><strong>Price:</strong> ${coffee.price.toFixed(2)}</p>}
-        {coffee.notes && <p className="notes"><strong>Notes:</strong> {coffee.notes}</p>}
+        <p><strong>Public:</strong> {coffee.isPublic ? 'Yes' : 'No'}</p>
+        {coffee.price && (
+          <p><strong>Price:</strong> ${coffee.price.toFixed(2)}</p>
+        )}
       </div>
+
       <div className="card-footer">
         <button
-          onClick={() => setIsEditing(true)}
-          className="btn btn-edit"
+          onClick={() => setShowImageManager(!showImageManager)}
+          className="btn btn-secondary"
         >
+          📷 {images.length}
+        </button>
+        <button onClick={() => setIsEditing(true)} className="btn btn-edit">
           Edit
         </button>
-        <button
-          onClick={() => onDelete(coffee._id)}
-          className="btn btn-delete"
-        >
+        <button onClick={() => onDelete(coffee._id)} className="btn btn-delete">
           Delete
         </button>
       </div>
+
+      {/* ── Image Manager (expandable) ───── */}
+      {showImageManager && (
+        <div className="card-image-manager">
+          <ImageUpload
+            existingImages={images}
+            onUpload={handleImageUpload}
+            onDelete={handleImageDelete}
+            onSetPrimary={handleSetPrimary}
+            maxImages={10}
+          />
+        </div>
+      )}
     </div>
   );
 };

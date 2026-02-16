@@ -1,94 +1,95 @@
+// server/models/Coffee.js
 const mongoose = require('mongoose');
+
+const imageSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    thumbnailUrl: { type: String, required: true },
+    filename: { type: String, required: true },
+    originalName: { type: String },
+    isPrimary: { type: Boolean, default: false },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: true } // each image gets its own _id for easy deletion
+);
 
 const coffeeSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   roaster: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   origin: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   roastDate: {
     type: Date,
-    required: true
+    required: true,
   },
-  // Coffee bean processing method
   processingMethod: {
     type: String,
     enum: ['Washed', 'Natural', 'Honey', 'Semi-washed', 'Other'],
-    default: 'Other'
+    default: 'Other',
   },
-  // Roast level
   roastLevel: {
     type: String,
     enum: ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark'],
-    default: 'Medium'
+    default: 'Medium',
   },
-  // Bean variety/cultivar
-  variety: {
-    type: String,
-    trim: true
-  },
-  // Altitude where coffee was grown
-  altitude: {
-    type: String,
-    trim: true
-  },
-  // Flavor notes from roaster
-  flavorNotes: [{
-    type: String,
-    trim: true
-  }],
-  price: {
-    type: Number,
-    min: 0
-  },
-  // User who added this coffee
+  variety: { type: String, trim: true },
+  altitude: { type: String, trim: true },
+  flavorNotes: [{ type: String, trim: true }],
+  price: { type: Number, min: 0 },
   addedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
-  // Whether this coffee is publicly visible
-  isPublic: {
-    type: Boolean,
-    default: false
+  isPublic: { type: Boolean, default: false },
+
+  // ── NEW: images array ──────────────────────────────
+  images: {
+    type: [imageSchema],
+    default: [],
+    validate: {
+      validator: function (arr) {
+        return arr.length <= 10; // max 10 images per coffee
+      },
+      message: 'A coffee can have at most 10 images',
+    },
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  barcode: {
-    type: String,
-    trim: true,
-    index: true,
-    sparse: true  // allows multiple docs to have null/missing barcode
-  },
-  barcodeImage: {
-    type: String,
-    trim: true
-  },
+
+  barcode: { type: String, trim: true, index: true, sparse: true },
+  barcodeImage: { type: String, trim: true },
+
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
-// Update the updatedAt timestamp before saving
+// Virtual: get the primary image URL (or first image, or a placeholder)
+coffeeSchema.virtual('primaryImage').get(function () {
+  const primary = this.images.find((img) => img.isPrimary);
+  if (primary) return primary;
+  if (this.images.length > 0) return this.images[0];
+  return null;
+});
+
+// Ensure virtuals show up in JSON
+coffeeSchema.set('toJSON', { virtuals: true });
+coffeeSchema.set('toObject', { virtuals: true });
+
 coffeeSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// Index for efficient querying
 coffeeSchema.index({ addedBy: 1, createdAt: -1 });
 coffeeSchema.index({ isPublic: 1, createdAt: -1 });
 coffeeSchema.index({ name: 'text', roaster: 'text', origin: 'text' });

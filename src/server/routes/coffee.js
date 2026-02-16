@@ -5,6 +5,9 @@ const Coffee = require('../models/Coffee');
 const Brew = require('../models/Brew');
 const auth = require('../middleware/auth');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // Get all coffees with advanced filtering and sorting
 // server/routes/coffees.js - Replace the GET / route
@@ -472,7 +475,7 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const coffee = await Coffee.findOne({
       _id: req.params.id,
-      addedBy: req.userId
+      addedBy: req.userId,
     });
 
     if (!coffee) {
@@ -480,16 +483,17 @@ router.delete('/:id', auth, async (req, res) => {
     }
 
     const brewCount = await Brew.countDocuments({ coffee: req.params.id });
-
     if (brewCount > 0) {
       return res.status(400).json({
         error: 'Cannot delete coffee that has associated brews',
-        brewCount
+        brewCount,
       });
     }
 
-    await coffee.deleteOne();
+    // ── Clean up all images on disk/cloud ──
+    await storage.removeAll('coffees', coffee._id.toString());
 
+    await coffee.deleteOne();
     res.json({ message: 'Coffee deleted successfully' });
   } catch (error) {
     console.error('Error deleting coffee:', error);
@@ -497,12 +501,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Rest of the routes remain the same...
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-const storage = multer.diskStorage({
+const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads/barcodes');
     if (!fs.existsSync(uploadDir)) {
@@ -517,7 +516,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({
-  storage,
+  multerStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|webp/;
@@ -800,6 +799,144 @@ router.get('/export/csv', auth, async (req, res) => {
   } catch (error) {
     console.error('Error exporting CSV data:', error);
     res.status(500).json({ error: 'Error exporting data' });
+  }
+});
+
+const storage = require('../services/storage');
+const { coffeeImages } = require('../middleware/upload');
+
+// ── Upload images to a coffee ───────────────────────
+router.post(
+  '/:id/images',
+  auth,
+  coffeeImages.array('images', 5), // field name 'images', max 5 at once
+  async (req, res) => {
+    try {
+      const coffee = await Coffee.findOne({
+        _id: req.params.id,
+        addedBy: req.userId,
+      });
+
+      if (!coffee) {
+        return res.status(404).json({ error: 'Coffee not found or access denied' });
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No images provided' });
+      }
+
+      // Check total image count
+      const totalAfterUpload = coffee.images.length + req.files.length;
+      if (totalAfterUpload > 10) {
+        return res.status(400).json({
+          error: `Cannot upload ${req.files.length} images. ` +
+            `Coffee already has ${coffee.images.length}/10 images.`,
+        });
+      }
+
+      // Process and save each image
+      const savedImages = await Promise.all(
+        req.files.map((file) =>
+          storage.save(
+            file.buffer,
+            'coffees',
+            coffee._id.toString(),
+            file.originalname
+          )
+        )
+      );
+
+      // If this coffee has no images yet, mark the first as primary
+      const hasPrimary = coffee.images.some((img) => img.isPrimary);
+
+      savedImages.forEach((img, i) => {
+        coffee.images.push({
+          ...img,
+          isPrimary: !hasPrimary && i === 0,
+        });
+      });
+
+      coffee.updatedAt = Date.now();
+      await coffee.save();
+
+      res.status(201).json({
+        message: `${savedImages.length} image(s) uploaded`,
+        images: coffee.images,
+      });
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      res.status(500).json({ error: 'Error uploading images' });
+    }
+  }
+);
+
+// ── Delete a single image from a coffee ─────────────
+router.delete('/:id/images/:imageId', auth, async (req, res) => {
+  try {
+    const coffee = await Coffee.findOne({
+      _id: req.params.id,
+      addedBy: req.userId,
+    });
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    const image = coffee.images.id(req.params.imageId);
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Remove from disk/cloud
+    await storage.remove(
+      'coffees',
+      coffee._id.toString(),
+      image.filename
+    );
+
+    // Remove from document
+    const wasPrimary = image.isPrimary;
+    coffee.images.pull({ _id: req.params.imageId });
+
+    // If we deleted the primary, promote the next one
+    if (wasPrimary && coffee.images.length > 0) {
+      coffee.images[0].isPrimary = true;
+    }
+
+    coffee.updatedAt = Date.now();
+    await coffee.save();
+
+    res.json({ message: 'Image deleted', images: coffee.images });
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({ error: 'Error deleting image' });
+  }
+});
+
+// ── Set an image as primary ─────────────────────────
+router.put('/:id/images/:imageId/primary', auth, async (req, res) => {
+  try {
+    const coffee = await Coffee.findOne({
+      _id: req.params.id,
+      addedBy: req.userId,
+    });
+
+    if (!coffee) {
+      return res.status(404).json({ error: 'Coffee not found or access denied' });
+    }
+
+    // Unset all, then set the target
+    coffee.images.forEach((img) => {
+      img.isPrimary = img._id.toString() === req.params.imageId;
+    });
+
+    coffee.updatedAt = Date.now();
+    await coffee.save();
+
+    res.json({ images: coffee.images });
+  } catch (error) {
+    console.error('Error setting primary image:', error);
+    res.status(500).json({ error: 'Error setting primary image' });
   }
 });
 

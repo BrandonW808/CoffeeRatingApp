@@ -37,6 +37,7 @@ app.use('/api/friends', friendsRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/coffees', coffeeRoutes);
 app.use('/api/brews', brewRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -141,3 +141,60 @@ export const getStats = async () => {
     throw error.response?.data || error;
   }
 };
+
+export const uploadCoffeeImages = async (coffeeId, files) => {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('images', file);
+  });
+
+  const token = localStorage.getItem('token');
+  const response = await fetch(`/api/coffees/${coffeeId}/images`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type — browser sets it with boundary for FormData
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Upload failed');
+  }
+
+  return response.json();
+};
+
+export const deleteCoffeeImage = async (coffeeId, imageId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`/api/coffees/${coffeeId}/images/${imageId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Delete failed');
+  }
+
+  return response.json();
+};
+
+export const setPrimaryImage = async (coffeeId, imageId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(
+    `/api/coffees/${coffeeId}/images/${imageId}/primary`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Failed to set primary');
+  }
+
+  return response.json();
+};
