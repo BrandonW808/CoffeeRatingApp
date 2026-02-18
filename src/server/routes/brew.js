@@ -5,6 +5,130 @@ const Brew = require('../models/Brew');
 const Coffee = require('../models/Coffee');
 const auth = require('../middleware/auth');
 
+// IMPORTANT: Put specific routes BEFORE parameterized routes
+
+console.log('Brew model loaded:', typeof Brew); // Should print "function"
+console.log('Brew.find exists:', typeof Brew?.find); // Should print "function"
+
+// If Brew is undefined, there's an issue with the model file
+if (!Brew) {
+  console.error('ERROR: Brew model failed to load!');
+}
+
+// Get brew statistics for user - MOVED BEFORE /:id
+router.get('/stats/summary', auth, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const userId = new mongoose.Types.ObjectId(req.userId);
+
+    const stats = await Brew.aggregate([
+      { $match: { user: userId } },
+      {
+        $group: {
+          _id: null,
+          totalBrews: { $sum: 1 },
+          averageRating: { $avg: '$rating' },
+          favoriteBrewMethod: { $first: '$brewMethod' }
+        }
+      }
+    ]);
+
+    const brewMethodCounts = await Brew.aggregate([
+      { $match: { user: userId } },
+      { $group: { _id: '$brewMethod', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    const temperatureStats = await Brew.aggregate([
+      { $match: { user: userId } },
+      {
+        $group: {
+          _id: '$brewMethod',
+          avgTemp: { $avg: '$brewTemperature' },
+          minTemp: { $min: '$brewTemperature' },
+          maxTemp: { $max: '$brewTemperature' }
+        }
+      }
+    ]);
+
+    res.json({
+      summary: stats[0] || {
+        totalBrews: 0,
+        averageRating: 0
+      },
+      brewMethodDistribution: brewMethodCounts,
+      temperatureStats
+    });
+  } catch (error) {
+    console.error('Error fetching brew stats:', error);
+    res.status(500).json({ error: 'Error fetching statistics' });
+  }
+});
+
+// Export user's brew data as CSV - MOVED BEFORE /:id
+router.get('/export/csv', auth, async (req, res) => {
+  try {
+    const brews = await Brew.find({ user: req.userId })
+      .populate('coffee', 'name roaster origin')
+      .sort({ createdAt: -1 });
+
+    if (!Array.isArray(brews) || brews.length === 0) {
+      return res.status(204).send();
+    }
+
+    const fields = [
+      'coffeeName',
+      'roaster',
+      'origin',
+      'brewMethod',
+      'brewTemperature',
+      'brewRatio',
+      'grindSize',
+      'brewTime',
+      'rating',
+      'notes',
+      'isPublic',
+      'createdAt'
+    ];
+
+    const csvHeader = fields.join(',');
+
+    const csvRows = brews.map(brew => {
+      const row = {
+        coffeeName: brew.coffee?.name || '',
+        roaster: brew.coffee?.roaster || '',
+        origin: brew.coffee?.origin || '',
+        brewMethod: brew.brewMethod,
+        brewTemperature: brew.brewTemperature,
+        brewRatio: brew.brewRatioString || `${brew.brewRatio?.coffee || 0}:${brew.brewRatio?.water || 0}`,
+        grindSize: brew.grindSize,
+        brewTime: brew.brewTime ? `${Math.floor(brew.brewTime / 60)}:${(brew.brewTime % 60).toString().padStart(2, '0')}` : '',
+        rating: brew.rating,
+        notes: brew.notes || '',
+        isPublic: brew.isPublic ? 'Yes' : 'No',
+        createdAt: brew.createdAt.toISOString()
+      };
+
+      return fields.map(field => {
+        let val = row[field];
+        if (typeof val === 'string') {
+          val = `"${val.replace(/"/g, '""')}"`;
+        }
+        return val ?? '';
+      }).join(',');
+    });
+
+    const csvData = [csvHeader, ...csvRows].join('\n');
+
+    res.setHeader('Content-Disposition', `attachment; filename="brew-history-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.send(csvData);
+  } catch (error) {
+    console.error('Error exporting brew CSV data:', error);
+    res.status(500).json({ error: 'Error exporting data' });
+  }
+});
+
 // Get all brews for logged-in user with filtering
 router.get('/my-brews', auth, async (req, res) => {
   try {
@@ -38,16 +162,16 @@ router.get('/my-brews', auth, async (req, res) => {
     const brews = await Brew.find(query)
       .populate('coffee', 'name roaster origin roastDate')
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .exec();
 
     const count = await Brew.countDocuments(query);
 
     res.json({
-      brews,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      brews: brews || [],
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -80,16 +204,16 @@ router.get('/coffee/:coffeeId/public', async (req, res) => {
       .populate('user', 'username')
       .populate('coffee', 'name roaster')
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .exec();
 
     const count = await Brew.countDocuments(query);
 
     res.json({
-      brews,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      brews: brews || [],
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -122,16 +246,16 @@ router.get('/public', async (req, res) => {
       .populate('coffee', 'name roaster origin roastDate')
       .populate('user', 'username')
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .exec();
 
     const count = await Brew.countDocuments(query);
 
     res.json({
-      brews,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      brews: brews || [],
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -140,7 +264,7 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// Get single brew by ID
+// Get single brew by ID - THIS MUST COME AFTER ALL SPECIFIC ROUTES
 router.get('/:id', async (req, res) => {
   try {
     const brew = await Brew.findById(req.params.id)
@@ -178,7 +302,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', [
   auth,
   body('coffee').isMongoId(),
-  body('brewMethod').isIn(['Espresso', 'Pour Over', 'French Press', 'AeroPress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
+  body('brewMethod').isIn(['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
   body('brewTemperature').isFloat({ min: 0, max: 100 }),
   body('brewRatio.coffee').isFloat({ min: 0 }),
   body('brewRatio.water').isFloat({ min: 0 }),
@@ -229,7 +353,7 @@ router.post('/', [
 // Update brew
 router.put('/:id', [
   auth,
-  body('brewMethod').optional().isIn(['Espresso', 'Pour Over', 'French Press', 'AeroPress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
+  body('brewMethod').optional().isIn(['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']),
   body('brewTemperature').optional().isFloat({ min: 0, max: 100 }),
   body('brewRatio.coffee').optional().isFloat({ min: 0 }),
   body('brewRatio.water').optional().isFloat({ min: 0 }),
@@ -312,117 +436,6 @@ router.post('/:id/like', auth, async (req, res) => {
   } catch (error) {
     console.error('Error toggling like:', error);
     res.status(500).json({ error: 'Error toggling like' });
-  }
-});
-
-// Get brew statistics for user
-router.get('/stats/summary', auth, async (req, res) => {
-  try {
-    const stats = await Brew.aggregate([
-      { $match: { user: req.userId } },
-      {
-        $group: {
-          _id: null,
-          totalBrews: { $sum: 1 },
-          averageRating: { $avg: '$rating' },
-          favoriteBrewMethod: { $first: '$brewMethod' }
-        }
-      }
-    ]);
-
-    const brewMethodCounts = await Brew.aggregate([
-      { $match: { user: req.userId } },
-      { $group: { _id: '$brewMethod', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-
-    const temperatureStats = await Brew.aggregate([
-      { $match: { user: req.userId } },
-      {
-        $group: {
-          _id: '$brewMethod',
-          avgTemp: { $avg: '$brewTemperature' },
-          minTemp: { $min: '$brewTemperature' },
-          maxTemp: { $max: '$brewTemperature' }
-        }
-      }
-    ]);
-
-    res.json({
-      summary: stats[0] || {
-        totalBrews: 0,
-        averageRating: 0
-      },
-      brewMethodDistribution: brewMethodCounts,
-      temperatureStats
-    });
-  } catch (error) {
-    console.error('Error fetching brew stats:', error);
-    res.status(500).json({ error: 'Error fetching statistics' });
-  }
-});
-
-// Export user's brew data as CSV
-router.get('/export/csv', auth, async (req, res) => {
-  try {
-    const brews = await Brew.find({ user: req.userId })
-      .populate('coffee', 'name roaster origin')
-      .sort({ createdAt: -1 });
-
-    if (!Array.isArray(brews) || brews.length === 0) {
-      return res.status(204).send();
-    }
-
-    const fields = [
-      'coffeeName',
-      'roaster',
-      'origin',
-      'brewMethod',
-      'brewTemperature',
-      'brewRatio',
-      'grindSize',
-      'brewTime',
-      'rating',
-      'notes',
-      'isPublic',
-      'createdAt'
-    ];
-
-    const csvHeader = fields.join(',');
-
-    const csvRows = brews.map(brew => {
-      const row = {
-        coffeeName: brew.coffee.name,
-        roaster: brew.coffee.roaster,
-        origin: brew.coffee.origin,
-        brewMethod: brew.brewMethod,
-        brewTemperature: brew.brewTemperature,
-        brewRatio: brew.brewRatioString || `${brew.brewRatio.coffee}:${brew.brewRatio.water}`,
-        grindSize: brew.grindSize,
-        brewTime: brew.brewTime ? `${Math.floor(brew.brewTime / 60)}:${(brew.brewTime % 60).toString().padStart(2, '0')}` : '',
-        rating: brew.rating,
-        notes: brew.notes || '',
-        isPublic: brew.isPublic ? 'Yes' : 'No',
-        createdAt: brew.createdAt.toISOString()
-      };
-
-      return fields.map(field => {
-        let val = row[field];
-        if (typeof val === 'string') {
-          val = `"${val.replace(/"/g, '""')}"`;
-        }
-        return val ?? '';
-      }).join(',');
-    });
-
-    const csvData = [csvHeader, ...csvRows].join('\n');
-
-    res.setHeader('Content-Disposition', `attachment; filename="brew-history-${new Date().toISOString().split('T')[0]}.csv"`);
-    res.setHeader('Content-Type', 'text/csv');
-    res.send(csvData);
-  } catch (error) {
-    console.error('Error exporting brew CSV data:', error);
-    res.status(500).json({ error: 'Error exporting data' });
   }
 });
 

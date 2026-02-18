@@ -37,7 +37,9 @@ app.use('/api/friends', friendsRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/coffees', coffeeRoutes);
 app.use('/api/brews', brewRoutes);
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadPath = path.join(__dirname, '../uploads');
+console.log(`[server] serving uploads from: ${uploadPath}`);
+app.use('/uploads', express.static(uploadPath));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -49,6 +51,34 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+app.get('/api/debug/uploads', (req, res) => {
+  const uploadPath = path.join(__dirname, '../uploads');
+  const exists = require('fs').existsSync(uploadPath);
+
+  let files = [];
+  if (exists) {
+    const walk = (dir, base = '') => {
+      require('fs').readdirSync(dir).forEach(f => {
+        const full = path.join(dir, f);
+        const rel = path.join(base, f);
+        if (require('fs').statSync(full).isDirectory()) {
+          walk(full, rel);
+        } else {
+          files.push(rel);
+        }
+      });
+    };
+    walk(uploadPath);
+  }
+
+  res.json({
+    uploadPath,
+    exists,
+    files: files.slice(0, 20), // first 20 files
+    serverDirname: __dirname,
+  });
+});
 
 app.use(express.static(path.join(__dirname, '../../dist')));
 

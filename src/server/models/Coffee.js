@@ -75,10 +75,10 @@ const coffeeSchema = new mongoose.Schema({
 
 // Virtual: get the primary image URL (or first image, or a placeholder)
 coffeeSchema.virtual('primaryImage').get(function () {
+  if (!this.images || !this.images.length) return null;
   const primary = this.images.find((img) => img.isPrimary);
   if (primary) return primary;
-  if (this.images.length > 0) return this.images[0];
-  return null;
+  return this.images[0];
 });
 
 // Ensure virtuals show up in JSON

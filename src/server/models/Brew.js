@@ -17,7 +17,7 @@ const brewSchema = new mongoose.Schema({
   brewMethod: {
     type: String,
     required: true,
-    enum: ['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Other']
+    enum: ['Espresso', 'Pour Over', 'French Press', 'Aeropress', 'Cold Brew', 'Moka Pot', 'Chemex', 'V60', 'Kalita Wave', 'Siphon', 'Drip', 'Other']
   },
   // Water temperature in Celsius
   brewTemperature: {
@@ -26,7 +26,7 @@ const brewSchema = new mongoose.Schema({
     max: 100,
     required: true
   },
-  // Coffee to water ratio (e.g., "1:15" means 1g coffee to 15g water)
+  // Coffee to water ratio
   brewRatio: {
     coffee: {
       type: Number,
@@ -80,19 +80,12 @@ const brewSchema = new mongoose.Schema({
   }],
   // Additional brew parameters
   extras: {
-    // Pre-infusion/bloom time in seconds
     bloomTime: Number,
-    // Number of pours (for pour over methods)
     numberOfPours: Number,
-    // Pressure in bars (for espresso)
     pressure: Number,
-    // Yield in grams (for espresso)
     yield: Number,
-    // Water type used
     waterType: String,
-    // Grinder used
     grinder: String,
-    // Any modifications to the brew method
     modifications: String
   },
   createdAt: {
@@ -111,7 +104,7 @@ brewSchema.pre('save', function (next) {
   next();
 });
 
-// Virtual for brew ratio as string (e.g., "1:15")
+// Virtual for brew ratio as string
 brewSchema.virtual('brewRatioString').get(function () {
   if (this.brewRatio && this.brewRatio.coffee && this.brewRatio.water) {
     const ratio = this.brewRatio.water / this.brewRatio.coffee;
@@ -130,15 +123,14 @@ brewSchema.methods.isLikedBy = function (userId) {
   return this.likes.some(id => id.equals(userId));
 };
 
-// Index for efficient querying
+// Indexes
 brewSchema.index({ user: 1, createdAt: -1 });
 brewSchema.index({ coffee: 1, createdAt: -1 });
 brewSchema.index({ isPublic: 1, createdAt: -1 });
 brewSchema.index({ isPublic: 1, rating: -1 });
 
 // Ensure virtuals are included in JSON
-brewSchema.set('toJSON', {
-  virtuals: true
-});
+brewSchema.set('toJSON', { virtuals: true });
 
+// THIS IS THE CRITICAL LINE - make sure it's exactly like this
 module.exports = mongoose.model('Brew', brewSchema);
