@@ -1,31 +1,27 @@
+// src/components/brew/AddBrewForm.jsx
 import React, { useState, useEffect } from 'react';
 import { searchCoffees } from '../../api/coffee';
-import { createBrew } from '../../api/brew';
 
 const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
   const [formData, setFormData] = useState({
     coffee: selectedCoffee?._id || '',
     brewMethod: 'Pour Over',
     brewTemperature: 93,
-    brewRatio: {
-      coffee: 15,
-      water: 250
-    },
+    brewRatio: { coffee: 15, water: 250 },
     grindSize: 'Medium',
-    brewTime: 240, // 4 minutes default
+    brewTime: 240,
     rating: 3,
     notes: '',
     flavorNotes: [],
     isPublic: false,
     extras: {
-      bloomTime: 30,
-      numberOfPours: 1,
-      waterType: '',
-      grinder: '',
-      modifications: ''
+      bloomTime: 30, numberOfPours: 1,
+      waterType: '', grinder: '', modifications: ''
     }
   });
 
+  const [pendingImages, setPendingImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [coffeeSearch, setCoffeeSearch] = useState('');
@@ -33,7 +29,6 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
   const [selectedCoffeeDetails, setSelectedCoffeeDetails] = useState(selectedCoffee);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Brew method specific defaults
   const brewMethodDefaults = {
     'Espresso': { temp: 93, time: 25, grindSize: 'Fine', coffee: 18, water: 36 },
     'Pour Over': { temp: 93, time: 240, grindSize: 'Medium', coffee: 15, water: 250 },
@@ -63,6 +58,53 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
     }
   }, [coffeeSearch]);
 
+  // Clean up image preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imagePreviews]);
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const totalImages = pendingImages.length + files.length;
+    if (totalImages > 5) {
+      setErrors((prev) => ({
+        ...prev,
+        images: `Maximum 5 images allowed. You selected ${totalImages}.`,
+      }));
+      return;
+    }
+
+    // Validate each file
+    const validFiles = files.filter((file) => {
+      if (file.size > 10 * 1024 * 1024) return false;
+      if (!/^image\/(jpeg|png|webp|heic)$/.test(file.type)) return false;
+      return true;
+    });
+
+    if (validFiles.length !== files.length) {
+      setErrors((prev) => ({
+        ...prev,
+        images: 'Some files were skipped (max 10MB, jpg/png/webp/heic only)',
+      }));
+    }
+
+    const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+
+    setPendingImages((prev) => [...prev, ...validFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    setErrors((prev) => ({ ...prev, images: null }));
+  };
+
+  const removeImage = (index) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setPendingImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleBrewMethodChange = (method) => {
     const defaults = brewMethodDefaults[method];
     if (defaults) {
@@ -72,10 +114,7 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
         brewTemperature: defaults.temp,
         brewTime: defaults.time,
         grindSize: defaults.grindSize,
-        brewRatio: {
-          coffee: defaults.coffee,
-          water: defaults.water
-        }
+        brewRatio: { coffee: defaults.coffee, water: defaults.water }
       });
     } else {
       setFormData({ ...formData, brewMethod: method });
@@ -84,29 +123,18 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.coffee) {
-      newErrors.coffee = 'Please select a coffee';
-    }
-    if (!formData.brewMethod) {
-      newErrors.brewMethod = 'Brew method is required';
-    }
+    if (!formData.coffee) newErrors.coffee = 'Please select a coffee';
+    if (!formData.brewMethod) newErrors.brewMethod = 'Brew method is required';
     if (formData.brewTemperature < 0 || formData.brewTemperature > 100) {
       newErrors.brewTemperature = 'Temperature must be between 0-100°C';
     }
-    if (formData.brewRatio.coffee <= 0) {
-      newErrors.brewRatio = 'Coffee amount must be positive';
-    }
-    if (formData.brewRatio.water <= 0) {
-      newErrors.brewRatio = 'Water amount must be positive';
-    }
-    
+    if (formData.brewRatio.coffee <= 0) newErrors.brewRatio = 'Coffee amount must be positive';
+    if (formData.brewRatio.water <= 0) newErrors.brewRatio = 'Water amount must be positive';
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -120,9 +148,11 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
       const dataToSubmit = {
         ...formData,
         brewTime: formData.brewTime || undefined,
-        flavorNotes: formData.flavorNotes.filter(note => note.trim() !== '')
+        flavorNotes: formData.flavorNotes.filter(note => note.trim() !== ''),
+        // Pass pending images so parent can upload after creation
+        _pendingImages: pendingImages,
       };
-      
+
       await onSubmit(dataToSubmit);
     } catch (error) {
       setErrors({ general: error.message });
@@ -133,7 +163,6 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData({
@@ -146,15 +175,11 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
     } else {
       setFormData({
         ...formData,
-        [name]: type === 'checkbox' ? checked : 
-                type === 'number' ? parseFloat(value) : value
+        [name]: type === 'checkbox' ? checked :
+          type === 'number' ? parseFloat(value) : value
       });
     }
-    
-    // Clear error for this field when user types
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   const handleCoffeeSelect = (coffee) => {
@@ -166,10 +191,7 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
 
   const addFlavorNote = (note) => {
     if (note && !formData.flavorNotes.includes(note)) {
-      setFormData({
-        ...formData,
-        flavorNotes: [...formData.flavorNotes, note]
-      });
+      setFormData({ ...formData, flavorNotes: [...formData.flavorNotes, note] });
     }
   };
 
@@ -195,9 +217,9 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
   return (
     <form onSubmit={handleSubmit} className="add-brew-form">
       <h2>Record a Brew</h2>
-      
+
       {errors.general && <div className="error-message">{errors.general}</div>}
-      
+
       {/* Coffee Selection */}
       <div className="form-group">
         <label htmlFor="coffee">Coffee*</label>
@@ -214,9 +236,7 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
                 setSelectedCoffeeDetails(null);
                 setFormData({ ...formData, coffee: '' });
               }}
-            >
-              Change
-            </button>
+            >Change</button>
           </div>
         ) : (
           <div className="coffee-search">
@@ -256,35 +276,18 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
             value={formData.brewMethod}
             onChange={(e) => handleBrewMethodChange(e.target.value)}
           >
-            <option value="Espresso">Espresso</option>
-            <option value="Pour Over">Pour Over</option>
-            <option value="V60">V60</option>
-            <option value="Chemex">Chemex</option>
-            <option value="French Press">French Press</option>
-            <option value="Aeropress">Aeropress</option>
-            <option value="Cold Brew">Cold Brew</option>
-            <option value="Moka Pot">Moka Pot</option>
-            <option value="Kalita Wave">Kalita Wave</option>
-            <option value="Siphon">Siphon</option>
-            <option value="Other">Other</option>
+            {['Espresso', 'Pour Over', 'V60', 'Chemex', 'French Press', 'Aeropress',
+              'Cold Brew', 'Moka Pot', 'Kalita Wave', 'Siphon', 'Other'].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
           </select>
         </div>
-
         <div className="form-group">
           <label htmlFor="grindSize">Grind Size*</label>
-          <select
-            id="grindSize"
-            name="grindSize"
-            value={formData.grindSize}
-            onChange={handleChange}
-          >
-            <option value="Extra Fine">Extra Fine</option>
-            <option value="Fine">Fine</option>
-            <option value="Medium-Fine">Medium-Fine</option>
-            <option value="Medium">Medium</option>
-            <option value="Medium-Coarse">Medium-Coarse</option>
-            <option value="Coarse">Coarse</option>
-            <option value="Extra Coarse">Extra Coarse</option>
+          <select id="grindSize" name="grindSize" value={formData.grindSize} onChange={handleChange}>
+            {['Extra Fine', 'Fine', 'Medium-Fine', 'Medium', 'Medium-Coarse', 'Coarse', 'Extra Coarse'].map(g => (
+              <option key={g} value={g}>{g}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -293,34 +296,20 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
       <div className="form-row">
         <div className="form-group">
           <label htmlFor="brewTemperature">
-            Temperature (°C)*
-            <span className="hint">{formData.brewTemperature}°C</span>
+            Temperature (°C)* <span className="hint">{formData.brewTemperature}°C</span>
           </label>
           <input
-            type="range"
-            id="brewTemperature"
-            name="brewTemperature"
-            min="0"
-            max="100"
-            step="1"
-            value={formData.brewTemperature}
-            onChange={handleChange}
-            className={errors.brewTemperature ? 'error' : ''}
+            type="range" id="brewTemperature" name="brewTemperature"
+            min="0" max="100" step="1"
+            value={formData.brewTemperature} onChange={handleChange}
           />
-          {errors.brewTemperature && <span className="field-error">{errors.brewTemperature}</span>}
         </div>
-
         <div className="form-group">
           <label htmlFor="brewTime">Brew Time</label>
           <input
-            type="text"
-            id="brewTime"
-            placeholder="mm:ss"
+            type="text" id="brewTime" placeholder="mm:ss"
             value={formatBrewTime(formData.brewTime)}
-            onChange={(e) => {
-              const seconds = parseBrewTime(e.target.value);
-              setFormData({ ...formData, brewTime: seconds });
-            }}
+            onChange={(e) => setFormData({ ...formData, brewTime: parseBrewTime(e.target.value) })}
           />
         </div>
       </div>
@@ -330,24 +319,14 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
         <label>Brew Ratio*</label>
         <div className="brew-ratio">
           <input
-            type="number"
-            name="brewRatio.coffee"
-            value={formData.brewRatio.coffee}
-            onChange={handleChange}
-            step="0.1"
-            min="0"
-            placeholder="Coffee (g)"
+            type="number" name="brewRatio.coffee" value={formData.brewRatio.coffee}
+            onChange={handleChange} step="0.1" min="0" placeholder="Coffee (g)"
             className={errors.brewRatio ? 'error' : ''}
           />
           <span>:</span>
           <input
-            type="number"
-            name="brewRatio.water"
-            value={formData.brewRatio.water}
-            onChange={handleChange}
-            step="1"
-            min="0"
-            placeholder="Water (g)"
+            type="number" name="brewRatio.water" value={formData.brewRatio.water}
+            onChange={handleChange} step="1" min="0" placeholder="Water (g)"
             className={errors.brewRatio ? 'error' : ''}
           />
           <span className="ratio-display">
@@ -362,13 +341,8 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
         <label htmlFor="rating">Rating*</label>
         <div className="rating-input">
           <input
-            type="range"
-            id="rating"
-            name="rating"
-            min="1"
-            max="5"
-            value={formData.rating}
-            onChange={handleChange}
+            type="range" id="rating" name="rating"
+            min="1" max="5" value={formData.rating} onChange={handleChange}
           />
           <span className="rating-display">
             {'★'.repeat(formData.rating)}{'☆'.repeat(5 - formData.rating)}
@@ -376,15 +350,47 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
         </div>
       </div>
 
+      {/* ── Brew Photos (NEW) ── */}
+      <div className="form-group">
+        <label>Brew Photos (optional, max 5)</label>
+        <div className="brew-image-upload">
+          {imagePreviews.length > 0 && (
+            <div className="image-preview-grid">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="image-preview-item">
+                  <img src={preview} alt={`Preview ${index + 1}`} />
+                  <button
+                    type="button"
+                    className="remove-preview"
+                    onClick={() => removeImage(index)}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {pendingImages.length < 5 && (
+            <label className="image-upload-trigger">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic"
+                multiple
+                onChange={handleImageSelect}
+                style={{ display: 'none' }}
+              />
+              <span className="upload-icon">📷</span>
+              <span>Add Photos</span>
+            </label>
+          )}
+          {errors.images && <span className="field-error">{errors.images}</span>}
+        </div>
+      </div>
+
       {/* Tasting Notes */}
       <div className="form-group">
         <label htmlFor="notes">Tasting Notes</label>
         <textarea
-          id="notes"
-          name="notes"
-          value={formData.notes}
-          onChange={handleChange}
-          placeholder="Describe the taste, aroma, mouthfeel..."
+          id="notes" name="notes" value={formData.notes}
+          onChange={handleChange} placeholder="Describe the taste, aroma, mouthfeel..."
           rows="3"
         />
       </div>
@@ -396,13 +402,7 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
           {formData.flavorNotes.map((note, index) => (
             <span key={index} className="flavor-tag">
               {note}
-              <button
-                type="button"
-                onClick={() => removeFlavorNote(note)}
-                className="remove-tag"
-              >
-                ×
-              </button>
+              <button type="button" onClick={() => removeFlavorNote(note)} className="remove-tag">×</button>
             </span>
           ))}
           <input
@@ -421,106 +421,46 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
 
       {/* Advanced Options */}
       <div className="advanced-section">
-        <button
-          type="button"
-          className="btn-text"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
+        <button type="button" className="btn-text" onClick={() => setShowAdvanced(!showAdvanced)}>
           {showAdvanced ? '▼' : '▶'} Advanced Options
         </button>
-        
         {showAdvanced && (
           <div className="advanced-options">
             {formData.brewMethod === 'Pour Over' && (
               <>
                 <div className="form-group">
-                  <label htmlFor="extras.bloomTime">Bloom Time (seconds)</label>
-                  <input
-                    type="number"
-                    id="extras.bloomTime"
-                    name="extras.bloomTime"
-                    value={formData.extras.bloomTime}
-                    onChange={handleChange}
-                    min="0"
-                  />
+                  <label>Bloom Time (seconds)</label>
+                  <input type="number" name="extras.bloomTime" value={formData.extras.bloomTime} onChange={handleChange} min="0" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="extras.numberOfPours">Number of Pours</label>
-                  <input
-                    type="number"
-                    id="extras.numberOfPours"
-                    name="extras.numberOfPours"
-                    value={formData.extras.numberOfPours}
-                    onChange={handleChange}
-                    min="1"
-                  />
+                  <label>Number of Pours</label>
+                  <input type="number" name="extras.numberOfPours" value={formData.extras.numberOfPours} onChange={handleChange} min="1" />
                 </div>
               </>
             )}
-            
             {formData.brewMethod === 'Espresso' && (
               <>
                 <div className="form-group">
-                  <label htmlFor="extras.pressure">Pressure (bars)</label>
-                  <input
-                    type="number"
-                    id="extras.pressure"
-                    name="extras.pressure"
-                    value={formData.extras.pressure}
-                    onChange={handleChange}
-                    step="0.1"
-                    min="0"
-                  />
+                  <label>Pressure (bars)</label>
+                  <input type="number" name="extras.pressure" value={formData.extras.pressure} onChange={handleChange} step="0.1" min="0" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="extras.yield">Yield (g)</label>
-                  <input
-                    type="number"
-                    id="extras.yield"
-                    name="extras.yield"
-                    value={formData.extras.yield}
-                    onChange={handleChange}
-                    step="0.1"
-                    min="0"
-                  />
+                  <label>Yield (g)</label>
+                  <input type="number" name="extras.yield" value={formData.extras.yield} onChange={handleChange} step="0.1" min="0" />
                 </div>
               </>
             )}
-            
             <div className="form-group">
-              <label htmlFor="extras.waterType">Water Type</label>
-              <input
-                type="text"
-                id="extras.waterType"
-                name="extras.waterType"
-                value={formData.extras.waterType}
-                onChange={handleChange}
-                placeholder="e.g., Filtered, Third Wave Water"
-              />
+              <label>Water Type</label>
+              <input type="text" name="extras.waterType" value={formData.extras.waterType} onChange={handleChange} placeholder="e.g., Filtered" />
             </div>
-            
             <div className="form-group">
-              <label htmlFor="extras.grinder">Grinder</label>
-              <input
-                type="text"
-                id="extras.grinder"
-                name="extras.grinder"
-                value={formData.extras.grinder}
-                onChange={handleChange}
-                placeholder="e.g., Baratza Encore, Setting 15"
-              />
+              <label>Grinder</label>
+              <input type="text" name="extras.grinder" value={formData.extras.grinder} onChange={handleChange} placeholder="e.g., Baratza Encore" />
             </div>
-            
             <div className="form-group">
-              <label htmlFor="extras.modifications">Modifications</label>
-              <textarea
-                id="extras.modifications"
-                name="extras.modifications"
-                value={formData.extras.modifications}
-                onChange={handleChange}
-                placeholder="Any special techniques or modifications..."
-                rows="2"
-              />
+              <label>Modifications</label>
+              <textarea name="extras.modifications" value={formData.extras.modifications} onChange={handleChange} rows="2" />
             </div>
           </div>
         )}
@@ -529,30 +469,16 @@ const AddBrewForm = ({ onSubmit, onCancel, selectedCoffee = null }) => {
       {/* Share Option */}
       <div className="form-group">
         <label className="checkbox-label">
-          <input
-            type="checkbox"
-            name="isPublic"
-            checked={formData.isPublic}
-            onChange={handleChange}
-          />
+          <input type="checkbox" name="isPublic" checked={formData.isPublic} onChange={handleChange} />
           Share this brew publicly
         </label>
       </div>
 
       <div className="form-actions">
-        <button 
-          type="submit" 
-          className="btn btn-primary"
-          disabled={loading}
-        >
+        <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? 'Saving...' : 'Save Brew'}
         </button>
-        <button 
-          type="button" 
-          className="btn btn-secondary"
-          onClick={onCancel}
-          disabled={loading}
-        >
+        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
           Cancel
         </button>
       </div>

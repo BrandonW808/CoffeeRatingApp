@@ -1,14 +1,18 @@
+// src/components/brew/BrewCard.jsx
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toggleBrewLike } from '../../api/brew';
 import { useAuth } from '../../contexts/AuthContext';
 import StarRating from '../common/StarRating';
+import UserAvatar from '../common/UserAvatar';
 
 const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
   const { user } = useAuth();
   const brewUser = brew.user || {};
   const brewUserId = brewUser._id || brewUser;
-  const isOwner = user?._id && brewUserId && (user._id === brewUserId.toString() || user._id.toString() === brewUserId.toString());
+  const isOwner = user?._id && brewUserId && (
+    user._id === brewUserId.toString() || user._id.toString() === brewUserId.toString()
+  );
   const safeRating = Math.max(0, Math.min(5, Math.round(brew.rating || 0)));
 
   const [liked, setLiked] = useState(
@@ -21,6 +25,10 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
   );
   const [likesCount, setLikesCount] = useState(brew.likesCount || brew.likes?.length || 0);
   const [isLiking, setIsLiking] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const images = brew.images || [];
+  const hasImages = images.length > 0;
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -41,6 +49,16 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
     }
   };
 
+  const nextImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((i) => (i + 1) % images.length);
+  };
+
+  const prevImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
+  };
+
   const formatBrewTime = (seconds) => {
     if (!seconds) return null;
     const mins = Math.floor(seconds / 60);
@@ -50,30 +68,58 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
 
   const getBrewMethodIcon = (method) => {
     const icons = {
-      'Espresso': '☕',
-      'Pour Over': '🫖',
-      'V60': '🔺',
-      'Chemex': '⏳',
-      'French Press': '🏺',
-      'Aeropress': '💉',
-      'Cold Brew': '🧊',
-      'Moka Pot': '🏺',
-      'Kalita Wave': '〰️',
-      'Siphon': '🧪',
-      'Other': '☕'
+      'Espresso': '☕', 'Pour Over': '🫖', 'V60': '🔺',
+      'Chemex': '⏳', 'French Press': '🏺', 'Aeropress': '💉',
+      'Cold Brew': '🧊', 'Moka Pot': '🏺', 'Kalita Wave': '〰️',
+      'Siphon': '🧪', 'Other': '☕'
     };
     return icons[method] || '☕';
   };
 
   return (
     <div className="brew-card" onClick={() => onViewDetails(brew)}>
+      {/* ── Brew Images ── */}
+      {hasImages && (
+        <div className="brew-image-section">
+          <div className="image-carousel">
+            <img
+              src={images[currentImageIndex].url}
+              alt={`${brew.coffee?.name || 'Brew'} photo`}
+              className="brew-hero-image"
+              loading="lazy"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+            {images.length > 1 && (
+              <>
+                <button className="carousel-btn prev" onClick={prevImage}>‹</button>
+                <button className="carousel-btn next" onClick={nextImage}>›</button>
+                <div className="carousel-dots">
+                  {images.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`dot ${i === currentImageIndex ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(i);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="brew-header">
         <div className="brew-title">
           <span className="brew-method-icon">{getBrewMethodIcon(brew.brewMethod)}</span>
           <div>
-            <h3>{brew.coffee.name}</h3>
+            <h3>{brew.coffee?.name || 'Unknown Coffee'}</h3>
             <p className="coffee-info">
-              {brew.coffee.roaster} - {brew.coffee.origin}
+              {brew.coffee?.roaster} - {brew.coffee?.origin}
             </p>
           </div>
         </div>
@@ -81,46 +127,28 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
           <div className="brew-actions">
             <button
               className="btn-icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(brew);
-              }}
+              onClick={(e) => { e.stopPropagation(); onEdit(brew); }}
               title="Edit brew"
-            >
-              ✏️
-            </button>
+            >✏️</button>
             <button
               className="btn-icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(brew._id);
-              }}
+              onClick={(e) => { e.stopPropagation(); onDelete(brew._id); }}
               title="Delete brew"
-            >
-              🗑️
-            </button>
+            >🗑️</button>
           </div>
         )}
       </div>
 
       <div className="brew-details">
         <div className="brew-params">
-          <span className="param">
-            <strong>{brew.brewMethod}</strong>
-          </span>
-          <span className="param">
-            🌡️ {brew.brewTemperature}°C
-          </span>
+          <span className="param"><strong>{brew.brewMethod}</strong></span>
+          <span className="param">🌡️ {brew.brewTemperature}°C</span>
           <span className="param">
             ⚖️ {brew.brewRatioString || `1:${(brew.brewRatio.water / brew.brewRatio.coffee).toFixed(1)}`}
           </span>
-          <span className="param">
-            ⚙️ {brew.grindSize}
-          </span>
+          <span className="param">⚙️ {brew.grindSize}</span>
           {brew.brewTime && (
-            <span className="param">
-              ⏱️ {formatBrewTime(brew.brewTime)}
-            </span>
+            <span className="param">⏱️ {formatBrewTime(brew.brewTime)}</span>
           )}
         </div>
 
@@ -132,9 +160,7 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
         {brew.flavorNotes && brew.flavorNotes.length > 0 && (
           <div className="flavor-notes">
             {brew.flavorNotes.slice(0, 3).map((note, index) => (
-              <span key={index} className="flavor-tag small">
-                {note}
-              </span>
+              <span key={index} className="flavor-tag small">{note}</span>
             ))}
             {brew.flavorNotes.length > 3 && (
               <span className="flavor-tag small more">
@@ -155,18 +181,20 @@ const BrewCard = ({ brew, onEdit, onDelete, onViewDetails }) => {
         <div className="brew-footer">
           <div className="brew-meta">
             {brew.isPublic && (
-              <span className="public-badge" title="Shared publicly">
-                🌍 Public
-              </span>
+              <span className="public-badge" title="Shared publicly">🌍 Public</span>
             )}
             {!isOwner && brewUser.username && (
               <span className="brew-user">
-                by {brewUser.username}
+                <UserAvatar user={brewUser} size="small" />
+                <span className="brew-username">{brewUser.username}</span>
               </span>
             )}
             <span className="brew-date">
               {formatDistanceToNow(new Date(brew.createdAt), { addSuffix: true })}
             </span>
+            {hasImages && (
+              <span className="image-count">📷 {images.length}</span>
+            )}
           </div>
 
           <div className="brew-social">

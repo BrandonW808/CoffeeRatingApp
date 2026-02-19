@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 6
   },
+  // ── NEW: avatar fields ──────────────────────────────
+  avatar: {
+    url: { type: String, default: null },
+    thumbnailUrl: { type: String, default: null },
+    filename: { type: String, default: null },
+    originalName: { type: String, default: null },
+    uploadedAt: { type: Date, default: null },
+  },
   passwordResetToken: {
     type: String
   },
@@ -38,7 +46,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
@@ -54,12 +61,10 @@ userSchema.pre('save', async function (next) {
   }
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Transform user object (remove sensitive data)
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;

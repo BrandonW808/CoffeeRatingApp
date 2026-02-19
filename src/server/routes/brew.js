@@ -1,21 +1,21 @@
+// server/routes/brews.js
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Brew = require('../models/Brew');
 const Coffee = require('../models/Coffee');
 const auth = require('../middleware/auth');
+const storage = require('../services/storage');
+const { brewImages } = require('../middleware/upload');
 
-// IMPORTANT: Put specific routes BEFORE parameterized routes
+console.log('Brew model loaded:', typeof Brew);
+console.log('Brew.find exists:', typeof Brew?.find);
 
-console.log('Brew model loaded:', typeof Brew); // Should print "function"
-console.log('Brew.find exists:', typeof Brew?.find); // Should print "function"
-
-// If Brew is undefined, there's an issue with the model file
 if (!Brew) {
   console.error('ERROR: Brew model failed to load!');
 }
 
-// Get brew statistics for user - MOVED BEFORE /:id
+// Get brew statistics for user
 router.get('/stats/summary', auth, async (req, res) => {
   try {
     const mongoose = require('mongoose');
@@ -52,10 +52,7 @@ router.get('/stats/summary', auth, async (req, res) => {
     ]);
 
     res.json({
-      summary: stats[0] || {
-        totalBrews: 0,
-        averageRating: 0
-      },
+      summary: stats[0] || { totalBrews: 0, averageRating: 0 },
       brewMethodDistribution: brewMethodCounts,
       temperatureStats
     });
@@ -65,7 +62,7 @@ router.get('/stats/summary', auth, async (req, res) => {
   }
 });
 
-// Export user's brew data as CSV - MOVED BEFORE /:id
+// Export user's brew data as CSV
 router.get('/export/csv', auth, async (req, res) => {
   try {
     const brews = await Brew.find({ user: req.userId })
@@ -77,18 +74,9 @@ router.get('/export/csv', auth, async (req, res) => {
     }
 
     const fields = [
-      'coffeeName',
-      'roaster',
-      'origin',
-      'brewMethod',
-      'brewTemperature',
-      'brewRatio',
-      'grindSize',
-      'brewTime',
-      'rating',
-      'notes',
-      'isPublic',
-      'createdAt'
+      'coffeeName', 'roaster', 'origin', 'brewMethod',
+      'brewTemperature', 'brewRatio', 'grindSize', 'brewTime',
+      'rating', 'notes', 'isPublic', 'createdAt'
     ];
 
     const csvHeader = fields.join(',');
@@ -129,30 +117,17 @@ router.get('/export/csv', auth, async (req, res) => {
   }
 });
 
-// Get all brews for logged-in user with filtering
+// Get all brews for logged-in user
 router.get('/my-brews', auth, async (req, res) => {
   try {
     const {
-      sortBy = 'createdAt',
-      order = 'desc',
-      limit = 50,
-      page = 1,
-      coffeeId,
-      brewMethod,
-      minRating,
-      maxRating
+      sortBy = 'createdAt', order = 'desc', limit = 50,
+      page = 1, coffeeId, brewMethod, minRating, maxRating
     } = req.query;
 
     const query = { user: req.userId };
-
-    if (coffeeId) {
-      query.coffee = coffeeId;
-    }
-
-    if (brewMethod) {
-      query.brewMethod = brewMethod;
-    }
-
+    if (coffeeId) query.coffee = coffeeId;
+    if (brewMethod) query.brewMethod = brewMethod;
     if (minRating || maxRating) {
       query.rating = {};
       if (minRating) query.rating.$gte = parseInt(minRating);
@@ -184,24 +159,15 @@ router.get('/my-brews', auth, async (req, res) => {
 router.get('/coffee/:coffeeId/public', async (req, res) => {
   try {
     const {
-      sortBy = 'createdAt',
-      order = 'desc',
-      limit = 20,
-      page = 1,
-      brewMethod
+      sortBy = 'createdAt', order = 'desc',
+      limit = 20, page = 1, brewMethod
     } = req.query;
 
-    const query = {
-      coffee: req.params.coffeeId,
-      isPublic: true
-    };
-
-    if (brewMethod) {
-      query.brewMethod = brewMethod;
-    }
+    const query = { coffee: req.params.coffeeId, isPublic: true };
+    if (brewMethod) query.brewMethod = brewMethod;
 
     const brews = await Brew.find(query)
-      .populate('user', 'username')
+      .populate('user', 'username avatar')
       .populate('coffee', 'name roaster')
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
       .limit(parseInt(limit))
@@ -226,25 +192,17 @@ router.get('/coffee/:coffeeId/public', async (req, res) => {
 router.get('/public', async (req, res) => {
   try {
     const {
-      sortBy = 'createdAt',
-      order = 'desc',
-      limit = 50,
-      page = 1,
-      brewMethod,
-      minRating
+      sortBy = 'createdAt', order = 'desc', limit = 50,
+      page = 1, brewMethod, minRating
     } = req.query;
 
     const query = { isPublic: true };
-    if (brewMethod) {
-      query.brewMethod = brewMethod;
-    }
-    if (minRating) {
-      query.rating = { $gte: parseInt(minRating) };
-    }
+    if (brewMethod) query.brewMethod = brewMethod;
+    if (minRating) query.rating = { $gte: parseInt(minRating) };
 
     const brews = await Brew.find(query)
       .populate('coffee', 'name roaster origin roastDate')
-      .populate('user', 'username')
+      .populate('user', 'username avatar')
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
@@ -264,12 +222,12 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// Get single brew by ID - THIS MUST COME AFTER ALL SPECIFIC ROUTES
+// Get single brew by ID
 router.get('/:id', async (req, res) => {
   try {
     const brew = await Brew.findById(req.params.id)
       .populate('coffee', 'name roaster origin roastDate flavorNotes')
-      .populate('user', 'username');
+      .populate('user', 'username avatar');
 
     if (!brew) {
       return res.status(404).json({ error: 'Brew not found' });
@@ -282,9 +240,7 @@ router.get('/:id', async (req, res) => {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.userId;
-      } catch (e) {
-        // Invalid token, continue as unauthenticated
-      }
+      } catch (e) { }
     }
 
     if (!brew.isPublic && (!userId || !brew.user._id.equals(userId))) {
@@ -335,11 +291,7 @@ router.post('/', [
       return res.status(403).json({ error: 'Access denied to this coffee' });
     }
 
-    const brew = new Brew({
-      ...req.body,
-      user: req.userId
-    });
-
+    const brew = new Brew({ ...req.body, user: req.userId });
     await brew.save();
     await brew.populate('coffee', 'name roaster origin roastDate');
 
@@ -390,7 +342,7 @@ router.put('/:id', [
 // Delete brew
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const brew = await Brew.findOneAndDelete({
+    const brew = await Brew.findOne({
       _id: req.params.id,
       user: req.userId
     });
@@ -399,6 +351,10 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Brew not found' });
     }
 
+    // Clean up images on disk
+    await storage.removeAll('brews', brew._id.toString());
+
+    await brew.deleteOne();
     res.json({ message: 'Brew deleted successfully' });
   } catch (error) {
     console.error('Error deleting brew:', error);
@@ -410,7 +366,6 @@ router.delete('/:id', auth, async (req, res) => {
 router.post('/:id/like', auth, async (req, res) => {
   try {
     const brew = await Brew.findById(req.params.id);
-
     if (!brew) {
       return res.status(404).json({ error: 'Brew not found' });
     }
@@ -420,7 +375,6 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     const userIndex = brew.likes.indexOf(req.userId);
-
     if (userIndex > -1) {
       brew.likes.splice(userIndex, 1);
     } else {
@@ -428,14 +382,134 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     await brew.save();
-
-    res.json({
-      liked: userIndex === -1,
-      likesCount: brew.likes.length
-    });
+    res.json({ liked: userIndex === -1, likesCount: brew.likes.length });
   } catch (error) {
     console.error('Error toggling like:', error);
     res.status(500).json({ error: 'Error toggling like' });
+  }
+});
+
+// ── Upload images to a brew ───────────────────────
+router.post(
+  '/:id/images',
+  auth,
+  brewImages.array('images', 3),
+  async (req, res) => {
+    try {
+      const brew = await Brew.findOne({
+        _id: req.params.id,
+        user: req.userId,
+      });
+
+      if (!brew) {
+        return res.status(404).json({ error: 'Brew not found or access denied' });
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No images provided' });
+      }
+
+      const totalAfterUpload = brew.images.length + req.files.length;
+      if (totalAfterUpload > 5) {
+        return res.status(400).json({
+          error: `Cannot upload ${req.files.length} images. ` +
+            `Brew already has ${brew.images.length}/5 images.`,
+        });
+      }
+
+      const savedImages = await Promise.all(
+        req.files.map((file) =>
+          storage.save(
+            file.buffer,
+            'brews',
+            brew._id.toString(),
+            file.originalname
+          )
+        )
+      );
+
+      const hasPrimary = brew.images.some((img) => img.isPrimary);
+
+      savedImages.forEach((img, i) => {
+        brew.images.push({
+          ...img,
+          isPrimary: !hasPrimary && i === 0,
+        });
+      });
+
+      brew.updatedAt = Date.now();
+      await brew.save();
+
+      res.status(201).json({
+        message: `${savedImages.length} image(s) uploaded`,
+        images: brew.images,
+      });
+    } catch (error) {
+      console.error('Error uploading brew images:', error);
+      res.status(500).json({ error: 'Error uploading images' });
+    }
+  }
+);
+
+// ── Delete a single image from a brew ─────────────
+router.delete('/:id/images/:imageId', auth, async (req, res) => {
+  try {
+    const brew = await Brew.findOne({
+      _id: req.params.id,
+      user: req.userId,
+    });
+
+    if (!brew) {
+      return res.status(404).json({ error: 'Brew not found or access denied' });
+    }
+
+    const image = brew.images.id(req.params.imageId);
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    await storage.remove('brews', brew._id.toString(), image.filename);
+
+    const wasPrimary = image.isPrimary;
+    brew.images.pull({ _id: req.params.imageId });
+
+    if (wasPrimary && brew.images.length > 0) {
+      brew.images[0].isPrimary = true;
+    }
+
+    brew.updatedAt = Date.now();
+    await brew.save();
+
+    res.json({ message: 'Image deleted', images: brew.images });
+  } catch (error) {
+    console.error('Error deleting brew image:', error);
+    res.status(500).json({ error: 'Error deleting image' });
+  }
+});
+
+// ── Set a brew image as primary ─────────────────────
+router.put('/:id/images/:imageId/primary', auth, async (req, res) => {
+  try {
+    const brew = await Brew.findOne({
+      _id: req.params.id,
+      user: req.userId,
+    });
+
+    if (!brew) {
+      return res.status(404).json({ error: 'Brew not found or access denied' });
+    }
+
+    brew.images.forEach((img) => {
+      img.isPrimary = img._id.toString() === req.params.imageId;
+    });
+
+    brew.updatedAt = Date.now();
+    await brew.save();
+
+    res.json({ images: brew.images });
+  } catch (error) {
+    console.error('Error setting primary brew image:', error);
+    res.status(500).json({ error: 'Error setting primary image' });
   }
 });
 

@@ -730,3 +730,312 @@ body {
   padding: 1rem;
   border-top: 1px solid var(--border-color, #eee);
 }
+
+/* ── UserAvatar ────────────────────────────────── */
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6b4226, #a0522d);
+  color: white;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-avatar.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+.user-avatar.avatar-md {
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+}
+
+.user-avatar.avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 1.5rem;
+}
+
+.user-avatar.avatar-xl {
+  width: 96px;
+  height: 96px;
+  font-size: 2.2rem;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Avatar Settings ───────────────────────────── */
+.avatar-settings {
+  margin-bottom: 1.5rem;
+}
+
+.avatar-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.avatar-actions label.btn {
+  cursor: pointer;
+  text-align: center;
+}
+
+.avatar-actions label.btn.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.btn-danger-outline {
+  background: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-danger-outline:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid #e0d6cc;
+  margin: 1.5rem 0;
+}
+
+/* ── Brew Image Section ────────────────────────── */
+.brew-image-section {
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+
+.brew-hero-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.brew-image-section .image-carousel {
+  position: relative;
+}
+
+.brew-image-section .carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.brew-image-section .carousel-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.brew-image-section .carousel-btn.prev {
+  left: 8px;
+}
+
+.brew-image-section .carousel-btn.next {
+  right: 8px;
+}
+
+.brew-image-section .carousel-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+}
+
+.brew-image-section .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.brew-image-section .dot.active {
+  background: white;
+}
+
+/* ── Brew User Avatar in cards ─────────────────── */
+.brew-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.brew-username {
+  font-size: 0.85rem;
+  color: #6b4226;
+}
+
+/* ── Image Upload in AddBrewForm ──────────────── */
+.brew-image-upload {
+  border: 2px dashed #d4c5b5;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+
+.brew-image-upload:hover {
+  border-color: #a0522d;
+}
+
+.image-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e0d6cc;
+}
+
+.image-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-preview {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.remove-preview:hover {
+  background: #dc3545;
+}
+
+.image-upload-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #a0522d;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #a0522d;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.image-upload-trigger:hover {
+  background: #a0522d;
+  color: white;
+}
+
+.upload-icon {
+  font-size: 1.1rem;
+}
+
+/* ── Brew card thumbnail in friend profile ────── */
+.brew-card-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.brew-card-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+/* ── Image count in brew footer ───────────────── */
+.brew-footer .image-count,
+.card-footer .image-count {
+  font-size: 0.8rem;
+  color: #8b7355;
+}
+
+/* ── Profile header with avatar ───────────────── */
+.profile-header-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem 0;
+}
+
+.friend-profile .profile-info {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}

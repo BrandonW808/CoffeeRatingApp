@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getFriendProfile, getFriendBrews } from '../../api/friends';
 import StarRating from '../common/StarRating';
+import UserAvatar from '../common/UserAvatar';
 
 const FriendProfile = () => {
     const { friendId } = useParams();
@@ -14,13 +15,8 @@ const FriendProfile = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    useEffect(() => {
-        fetchProfile();
-    }, [friendId]);
-
-    useEffect(() => {
-        fetchBrews();
-    }, [friendId, page]);
+    useEffect(() => { fetchProfile(); }, [friendId]);
+    useEffect(() => { fetchBrews(); }, [friendId, page]);
 
     const fetchProfile = async () => {
         try {
@@ -33,7 +29,6 @@ const FriendProfile = () => {
             } else {
                 setError('Failed to load profile');
             }
-            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -54,23 +49,17 @@ const FriendProfile = () => {
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
+            year: 'numeric', month: 'short', day: 'numeric'
         });
     };
 
-    if (loading) {
-        return <div className="loading">Loading profile...</div>;
-    }
+    if (loading) return <div className="loading">Loading profile...</div>;
 
     if (error) {
         return (
             <div className="error-container">
                 <div className="error-message">{error}</div>
-                <Link to="/profile" className="btn btn-primary">
-                    Back to Profile
-                </Link>
+                <Link to="/profile" className="btn btn-primary">Back to Profile</Link>
             </div>
         );
     }
@@ -79,11 +68,8 @@ const FriendProfile = () => {
         <div className="friend-profile">
             <div className="profile-header">
                 <Link to="/profile" className="back-link">← Back to Profile</Link>
-
                 <div className="profile-info">
-                    <div className="profile-avatar large">
-                        {profile.user.username.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar user={profile.user} size="large" />
                     <div className="profile-details">
                         <h1>{profile.user.username}</h1>
                         <p className="member-since">
@@ -113,7 +99,6 @@ const FriendProfile = () => {
                 </div>
             </div>
 
-            {/* Brew Methods */}
             {profile.stats.topBrewMethods?.length > 0 && (
                 <section className="profile-section">
                     <h2>Favorite Brew Methods</h2>
@@ -127,9 +112,7 @@ const FriendProfile = () => {
                                 <div className="method-progress">
                                     <div
                                         className="method-fill"
-                                        style={{
-                                            width: `${(method.count / profile.stats.totalPublicBrews) * 100}%`
-                                        }}
+                                        style={{ width: `${(method.count / profile.stats.totalPublicBrews) * 100}%` }}
                                     />
                                 </div>
                             </div>
@@ -138,60 +121,62 @@ const FriendProfile = () => {
                 </section>
             )}
 
-            {/* Recent Brews */}
             <section className="profile-section">
                 <h2>Public Brews</h2>
                 {brewsLoading ? (
                     <div className="loading">Loading brews...</div>
                 ) : brews.length === 0 ? (
-                    <div className="empty-state">
-                        <p>No public brews shared yet.</p>
-                    </div>
+                    <div className="empty-state"><p>No public brews shared yet.</p></div>
                 ) : (
                     <>
                         <div className="brews-list">
-                            {brews.map(brew => (
-                                <div key={brew._id} className="brew-card">
-                                    <div className="brew-header">
-                                        <h3>{brew.coffee?.name || 'Unknown Coffee'}</h3>
-                                        <StarRating rating={brew.rating} />
-                                    </div>
-                                    <div className="brew-details">
-                                        <span className="brew-method">{brew.brewMethod}</span>
-                                        {brew.coffee?.roaster && (
-                                            <span className="brew-roaster">{brew.coffee.roaster}</span>
+                            {brews.map(brew => {
+                                const brewImages = brew.images || [];
+                                return (
+                                    <div key={brew._id} className="brew-card">
+                                        {brewImages.length > 0 && (
+                                            <div className="brew-card-thumbnail">
+                                                <img
+                                                    src={brewImages[0].thumbnailUrl || brewImages[0].url}
+                                                    alt={brew.coffee?.name || 'Brew'}
+                                                    loading="lazy"
+                                                />
+                                                {brewImages.length > 1 && (
+                                                    <span className="image-badge">+{brewImages.length - 1}</span>
+                                                )}
+                                            </div>
                                         )}
+                                        <div className="brew-header">
+                                            <h3>{brew.coffee?.name || 'Unknown Coffee'}</h3>
+                                            <StarRating rating={brew.rating} />
+                                        </div>
+                                        <div className="brew-details">
+                                            <span className="brew-method">{brew.brewMethod}</span>
+                                            {brew.coffee?.roaster && (
+                                                <span className="brew-roaster">{brew.coffee.roaster}</span>
+                                            )}
+                                        </div>
+                                        {brew.notes && <p className="brew-notes">{brew.notes}</p>}
+                                        <div className="brew-meta">
+                                            <span>{formatDate(brew.createdAt)}</span>
+                                            {brew.likes?.length > 0 && <span>❤️ {brew.likes.length}</span>}
+                                        </div>
                                     </div>
-                                    {brew.notes && (
-                                        <p className="brew-notes">{brew.notes}</p>
-                                    )}
-                                    <div className="brew-meta">
-                                        <span>{formatDate(brew.createdAt)}</span>
-                                        {brew.likes?.length > 0 && (
-                                            <span>❤️ {brew.likes.length}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {totalPages > 1 && (
                             <div className="pagination">
                                 <button
                                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="btn btn-secondary"
-                                >
-                                    Previous
-                                </button>
+                                    disabled={page === 1} className="btn btn-secondary"
+                                >Previous</button>
                                 <span>Page {page} of {totalPages}</span>
                                 <button
                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="btn btn-secondary"
-                                >
-                                    Next
-                                </button>
+                                    disabled={page === totalPages} className="btn btn-secondary"
+                                >Next</button>
                             </div>
                         )}
                     </>

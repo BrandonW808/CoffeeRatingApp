@@ -49,6 +49,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      setUser(data.user);
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+    }
+  };
+
   const register = async (userData) => {
     try {
       setError(null);
@@ -82,6 +94,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    refreshUser,
     checkAuth,
     isAuthenticated: !!user
   };

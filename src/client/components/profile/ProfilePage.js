@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import FriendsManager from '../friends/FriendsManager';
 import ProfileSettings from './ProfileSettings';
+import UserAvatar from '../common/UserAvatar';
 
 const ProfilePage = () => {
     const { user } = useAuth();
@@ -19,9 +20,7 @@ const ProfilePage = () => {
     return (
         <div className="profile-page">
             <div className="profile-header-section">
-                <div className="profile-avatar large">
-                    {user?.username?.charAt(0).toUpperCase() || '?'}
-                </div>
+                <UserAvatar user={user} size="xlarge" />
                 <div className="profile-info">
                     <h1>{user?.username}</h1>
                     <p className="profile-email">{user?.email}</p>
@@ -35,33 +34,21 @@ const ProfilePage = () => {
                 <button
                     className={`profile-tab ${activeTab === 'overview' ? 'active' : ''}`}
                     onClick={() => setActiveTab('overview')}
-                >
-                    Overview
-                </button>
+                >Overview</button>
                 <button
                     className={`profile-tab ${activeTab === 'friends' ? 'active' : ''}`}
                     onClick={() => setActiveTab('friends')}
-                >
-                    Friends
-                </button>
+                >Friends</button>
                 <button
                     className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
                     onClick={() => setActiveTab('settings')}
-                >
-                    Settings
-                </button>
+                >Settings</button>
             </div>
 
             <div className="profile-content">
-                {activeTab === 'overview' && (
-                    <ProfileOverview user={user} />
-                )}
-                {activeTab === 'friends' && (
-                    <FriendsManager />
-                )}
-                {activeTab === 'settings' && (
-                    <ProfileSettings user={user} />
-                )}
+                {activeTab === 'overview' && <ProfileOverview user={user} />}
+                {activeTab === 'friends' && <FriendsManager />}
+                {activeTab === 'settings' && <ProfileSettings user={user} />}
             </div>
         </div>
     );
@@ -76,32 +63,26 @@ const ProfileOverview = ({ user }) => {
                     Your coffee journey stats will appear here as you log more brews!
                 </p>
             </div>
-
             <div className="overview-section">
                 <h2>Recent Activity</h2>
                 <p className="placeholder-text">
                     Your recent brewing activity will be shown here.
                 </p>
             </div>
-
             <div className="quick-links">
                 <h2>Quick Links</h2>
                 <div className="link-grid">
                     <a href="/brews" className="quick-link-card">
-                        <span className="link-icon">☕</span>
-                        <span>My Brews</span>
+                        <span className="link-icon">☕</span><span>My Brews</span>
                     </a>
                     <a href="/coffees" className="quick-link-card">
-                        <span className="link-icon">🫘</span>
-                        <span>My Coffees</span>
+                        <span className="link-icon">🫘</span><span>My Coffees</span>
                     </a>
                     <a href="/discover" className="quick-link-card">
-                        <span className="link-icon">🌍</span>
-                        <span>Discover</span>
+                        <span className="link-icon">🌍</span><span>Discover</span>
                     </a>
                     <a href="/dashboard" className="quick-link-card">
-                        <span className="link-icon">📊</span>
-                        <span>Dashboard</span>
+                        <span className="link-icon">📊</span><span>Dashboard</span>
                     </a>
                 </div>
             </div>

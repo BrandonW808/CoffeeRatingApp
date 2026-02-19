@@ -84,6 +84,7 @@ const BrewList = ({ viewMode = 'personal' }) => {
 
   const handleUpdateBrew = async (brewData) => {
     try {
+      console.log(`Updating brew...`)
       const updatedBrew = await updateBrew(editingBrew._id, brewData);
       setBrews(brews.map(b => b._id === updatedBrew._id ? updatedBrew : b));
       setEditingBrew(null);

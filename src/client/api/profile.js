@@ -30,7 +30,6 @@ api.interceptors.response.use(
     }
 );
 
-// Get current user profile
 export const getProfile = async () => {
     try {
         const response = await api.get('/auth/me');
@@ -40,7 +39,6 @@ export const getProfile = async () => {
     }
 };
 
-// Update profile
 export const updateProfile = async (profileData) => {
     try {
         const response = await api.put('/auth/profile', profileData);
@@ -50,7 +48,6 @@ export const updateProfile = async (profileData) => {
     }
 };
 
-// Change password
 export const changePassword = async (passwordData) => {
     try {
         const response = await api.put('/auth/password', passwordData);
@@ -60,7 +57,6 @@ export const changePassword = async (passwordData) => {
     }
 };
 
-// Delete account
 export const deleteAccount = async (password) => {
     try {
         const response = await api.delete('/auth/account', {
@@ -70,4 +66,42 @@ export const deleteAccount = async (password) => {
     } catch (error) {
         throw error.response?.data || error;
     }
+};
+
+// ── NEW: Avatar API functions ─────────────────────
+
+export const uploadAvatar = async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/auth/avatar`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Upload failed');
+    }
+
+    return response.json();
+};
+
+export const deleteAvatar = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/auth/avatar`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Delete failed');
+    }
+
+    return response.json();
 };
